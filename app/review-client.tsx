@@ -1164,7 +1164,15 @@ export default function ReviewClient({
     [review.focusOpportunities],
   );
   const focusedSolutionFilterIds = useMemo(
-    () => review.solutions.map((solution) => solution.id),
+    () => {
+      const focusedSolutionIds = review.solutions
+        .filter((solution) => solution.isFocus)
+        .map((solution) => solution.id);
+
+      return focusedSolutionIds.length > 0
+        ? focusedSolutionIds
+        : review.solutions.map((solution) => solution.id);
+    },
     [review.solutions],
   );
   const activeOpportunityFilterIds = useMemo(

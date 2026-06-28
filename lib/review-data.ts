@@ -787,12 +787,7 @@ export async function getReviewState(): Promise<ReviewState> {
         node.nodeType === "solution" && isInFocusedOpportunity(node),
     )
     .sort(compareByPriority);
-  const focusedSolutionNodes = terminalFocusedSolutions(nodes, nodeMap)
-    .sort(compareByPriority);
-  const solutionNodes =
-    focusedSolutionNodes.length > 0
-      ? focusedSolutionNodes
-      : descendantSolutionNodes;
+  const solutionNodes = descendantSolutionNodes;
 
   const pathNodeIds = new Set(path.map((node) => node.id));
   const treeRankMap = new Map<string, number>();

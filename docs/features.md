@@ -169,6 +169,7 @@ The `Add` menu adapts to the selected tree node.
   - Sub-solution.
   - Assumption.
 - Assumption can add a test.
+- Tests can be added from any visible tree assumption, including assumptions under non-focused solutions.
 - Mutually exclusive branch rules are enforced:
   - An opportunity with sub-opportunities cannot also add solutions.
   - An opportunity with solutions cannot also add sub-opportunities.
