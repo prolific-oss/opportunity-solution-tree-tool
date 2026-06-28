@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern work",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "qa:seed-multi-focus": "node scripts/seed-multi-focus-fixture.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^12.4.1",
