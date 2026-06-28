@@ -3,8 +3,7 @@
 A local-first Next.js app for reviewing an Opportunity Solution Tree, assumptions,
 tests, owners, and weekly progress.
 
-This version runs directly on your machine. It does not use Codex Sites,
-vinext, Cloudflare Workers, Wrangler, or D1 bindings.
+This version runs directly on your machine with local SQLite persistence.
 
 ## Prerequisites
 
