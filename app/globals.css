@@ -2404,12 +2404,34 @@ select:focus {
 .tree-row.muted {
   border-color: #edf1f7;
   background: #fbfcfe;
+}
+
+.tree-row.muted .tree-row-main,
+.tree-row.muted .tree-disclosure-button,
+.tree-row.muted .tree-focus-button,
+.tree-row.muted .tree-action-button,
+.tree-row.muted .tree-icon-button,
+.tree-row.muted .tree-delete-button {
   opacity: 0.62;
 }
 
-.tree-row.muted:hover,
-.tree-row.muted:focus-within {
+.tree-row.muted:hover .tree-row-main,
+.tree-row.muted:hover .tree-disclosure-button,
+.tree-row.muted:hover .tree-focus-button,
+.tree-row.muted:hover .tree-action-button,
+.tree-row.muted:hover .tree-icon-button,
+.tree-row.muted:hover .tree-delete-button,
+.tree-row.muted:focus-within .tree-row-main,
+.tree-row.muted:focus-within .tree-disclosure-button,
+.tree-row.muted:focus-within .tree-focus-button,
+.tree-row.muted:focus-within .tree-action-button,
+.tree-row.muted:focus-within .tree-icon-button,
+.tree-row.muted:focus-within .tree-delete-button {
   opacity: 0.9;
+}
+
+.tree-row.popover-open {
+  z-index: 20;
 }
 
 .tree-row.completed {
@@ -2961,12 +2983,6 @@ select:focus {
   border: 1px solid #d8e0ef;
   background: #ffffff;
   color: var(--navy);
-}
-
-.tree-row.muted .tree-disclosure-button,
-.tree-row.muted .tree-action-button,
-.tree-row.muted .tree-delete-button {
-  opacity: 0.82;
 }
 
 .tree-focus-button:disabled {

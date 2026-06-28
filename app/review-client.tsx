@@ -2115,6 +2115,8 @@ export default function ReviewClient({
     const moreKey = `tree-more:${node.id}`;
     const deleteTarget =
       deleteConfirm?.nodeId === node.id ? deleteConfirm : null;
+    const hasOpenTreePopover =
+      addMenuKey === addKey || addMenuKey === moreKey || Boolean(deleteTarget);
     const actionGroups: Array<TreeAddAction["group"]> = ["alongside", "inside"];
     const canDrag = node.type !== "outcome";
     const isDragging = treeDrag?.nodeId === node.id;
@@ -2177,7 +2179,9 @@ export default function ReviewClient({
           dropPlacement ? `drop-${dropPlacement}` : ""
         } ${isCompletedSolution ? "completed" : ""} ${
           isFocusRow ? "focused" : ""
-        } ${isFocusPathRow ? "focus-path" : ""} ${isMutedRow ? "muted" : ""}`}
+        } ${isFocusPathRow ? "focus-path" : ""} ${
+          isMutedRow ? "muted" : ""
+        } ${hasOpenTreePopover ? "popover-open" : ""}`}
         draggable={canDrag && !busy}
         onDragEnd={() => setTreeDrag(null)}
         onDragOver={(event) => {
