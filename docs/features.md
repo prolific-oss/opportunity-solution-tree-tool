@@ -131,6 +131,7 @@ Expand/collapse controls are intentionally scoped to the tree drawer.
 
 - Opportunity rows show `Show` or `Hide` controls when they have child opportunities or solutions.
 - Solution rows show `Show` or `Hide` controls when they have child assumptions or sub-solutions.
+- Solution rows keep common actions compact: focus is an icon toggle, add is an icon menu, and complete/reopen plus delete live in the overflow menu.
 - Assumption rows show `Show` or `Hide` controls for their tests.
 - Expanding one branch does not collapse sibling branches.
 - Expanded sibling branches remain visible at the same time.
@@ -175,7 +176,7 @@ The `Add` menu adapts to the selected tree node.
 - Tree node titles can be edited inline.
 - Opportunity and solution descriptions can be edited inline.
 - Assumption type can be edited inline.
-- Solution completion can be toggled between active and completed.
+- Solution completion can be toggled between active and completed from the solution row overflow menu.
 - Opportunities can be set as the focused opportunity.
 - Up to three solutions can be set as focused solutions.
 

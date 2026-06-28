@@ -232,12 +232,13 @@ textarea {
 .parsed-row,
 .tree-action-button,
 .tree-focus-button,
+.tree-icon-button,
 .tree-disclosure-button,
-.tree-complete-button,
 .focus-change-button,
 .tree-title-edit,
 .tree-test-row,
 .tree-delete-button,
+.tree-more-menu-item,
 .tree-add-menu-item,
 .detail-close,
 .verdict-button {
@@ -2614,6 +2615,10 @@ select:focus {
   position: relative;
 }
 
+.tree-row-solution .tree-row-actions {
+  gap: 4px;
+}
+
 .tree-action-button {
   min-height: 28px;
   padding: 0 8px;
@@ -2662,37 +2667,6 @@ select:focus {
   transform: rotate(180deg);
 }
 
-.tree-complete-button {
-  min-height: 32px;
-  padding: 0 10px;
-  border: 1px solid #d4deeb;
-  border-radius: 9px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: #ffffff;
-  color: #53617d;
-  font-size: 11px;
-  font-weight: 750;
-  white-space: nowrap;
-}
-
-.tree-complete-button:hover {
-  border-color: #a7d8bd;
-  background: #f5fcf8;
-  color: #0e7d56;
-}
-
-.tree-complete-button.active {
-  border-color: #a7d8bd;
-  background: var(--green-soft);
-  color: #0e7d56;
-}
-
-.tree-complete-button:disabled {
-  opacity: 0.58;
-}
-
 .add-dropdown-button {
   min-height: 32px;
   padding: 0 10px;
@@ -2700,9 +2674,97 @@ select:focus {
   background: #ffffff;
 }
 
+.tree-icon-button.add-dropdown-button {
+  padding: 0;
+  border-color: #cfd8ff;
+}
+
 .tree-add-menu-wrap,
-.tree-delete-wrap {
+.tree-delete-wrap,
+.tree-more-wrap {
   position: relative;
+}
+
+.tree-icon-button {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border: 1px solid #dce4f0;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  color: #53617d;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease;
+}
+
+.tree-icon-button:hover,
+.tree-icon-button:focus-visible,
+.tree-icon-button[aria-expanded="true"] {
+  border-color: #b8c5ff;
+  background: var(--navy-soft);
+  color: var(--navy);
+}
+
+.tree-focus-icon-button {
+  border-color: var(--navy);
+  background: var(--navy);
+  color: #ffffff;
+}
+
+.tree-focus-icon-button:hover,
+.tree-focus-icon-button:focus-visible,
+.tree-focus-icon-button.active {
+  border-color: var(--navy);
+  background: var(--navy);
+  color: #ffffff;
+}
+
+.tree-focus-icon-button.active {
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.42);
+}
+
+.tree-row.muted .tree-focus-icon-button {
+  border-color: #d8e0ef;
+  background: #ffffff;
+  color: var(--navy);
+}
+
+.tree-icon-button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.icon-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  padding: 4px 7px;
+  border-radius: 3px;
+  background: rgba(42, 45, 57, 0.9);
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(3px);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+  z-index: 12;
+}
+
+.tree-icon-button:hover .icon-tooltip,
+.tree-icon-button:focus-visible .icon-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .tree-add-menu {
@@ -2716,6 +2778,53 @@ select:focus {
   background: #ffffff;
   box-shadow: var(--shadow-strong);
   z-index: 8;
+}
+
+.tree-more-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 184px;
+  padding: 8px;
+  border: 1px solid #dbe3ef;
+  border-radius: 9px;
+  background: #ffffff;
+  box-shadow: var(--shadow-strong);
+  z-index: 8;
+}
+
+.tree-more-menu-item {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 9px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: #526383;
+  font-size: 12px;
+  font-weight: 750;
+  text-align: left;
+}
+
+.tree-more-menu-item:hover {
+  background: #f7f9ff;
+  color: var(--navy);
+}
+
+.tree-more-menu-item.danger {
+  color: #9f3042;
+}
+
+.tree-more-menu-item.danger:hover {
+  background: #fff5f6;
+  color: #8d1f32;
+}
+
+.tree-more-menu-item:disabled {
+  cursor: wait;
+  opacity: 0.58;
 }
 
 .tree-add-menu-group + .tree-add-menu-group {

@@ -9,6 +9,7 @@ import {
   FlaskConical,
   GripVertical,
   Lightbulb,
+  MoreHorizontal,
   Network,
   Plus,
   Search,
@@ -2102,6 +2103,7 @@ export default function ReviewClient({
         (solution) => solution.id === node.id && solution.isFocus,
       );
     const addKey = `tree-add:${node.id}`;
+    const moreKey = `tree-more:${node.id}`;
     const deleteTarget =
       deleteConfirm?.nodeId === node.id ? deleteConfirm : null;
     const actionGroups: Array<TreeAddAction["group"]> = ["alongside", "inside"];
@@ -2339,27 +2341,6 @@ export default function ReviewClient({
               </span>
             </button>
           ) : null}
-          {node.type === "solution" ? (
-            <button
-              aria-pressed={isCompletedSolution}
-              className={`tree-complete-button ${
-                isCompletedSolution ? "active" : ""
-              }`}
-              disabled={busy}
-              onClick={(event) => {
-                event.stopPropagation();
-                void setSolutionCompletion(
-                  node.id,
-                  isCompletedSolution ? "active" : "completed",
-                );
-              }}
-              title={isCompletedSolution ? "Reopen solution" : "Mark completed"}
-              type="button"
-            >
-              <CheckCircle2 aria-hidden="true" size={14} />
-              <span>{isCompletedSolution ? "Reopen" : "Complete"}</span>
-            </button>
-          ) : null}
           {canSetOpportunityFocus ? (
             <button
               className="tree-focus-button"
@@ -2376,84 +2357,188 @@ export default function ReviewClient({
           ) : null}
           {canToggleSolutionFocus ? (
             <button
-              className="tree-focus-button"
+              aria-label={
+                node.isFocus ? "Unset solution focus" : "Set solution focus"
+              }
+              aria-pressed={node.isFocus}
+              className={`tree-icon-button tree-focus-icon-button ${
+                node.isFocus ? "active" : ""
+              }`}
               disabled={busy}
               onClick={(event) => {
                 event.stopPropagation();
                 void setFocusSolution(node.id, !node.isFocus);
               }}
+              title={node.isFocus ? "Unset focus" : "Set focus"}
               type="button"
             >
               <Target aria-hidden="true" size={13} />
-              <span>{node.isFocus ? "Unset focus" : "Set focus"}</span>
+              <span className="icon-tooltip">
+                {node.isFocus ? "Unset focus" : "Set focus"}
+              </span>
             </button>
           ) : null}
           {addActions.length > 0 ? (
             <div className="tree-add-menu-wrap">
-            <button
-              aria-expanded={addMenuKey === addKey}
-              className="tree-action-button add-dropdown-button"
-              onClick={() => {
-                setDeleteConfirm(null);
-                setAddMenuKey((current) => (current === addKey ? null : addKey));
-              }}
-              type="button"
-            >
-              <Plus aria-hidden="true" size={14} />
-              <span>Add</span>
-              <ChevronDown aria-hidden="true" size={13} />
-            </button>
-
-            {addMenuKey === addKey ? (
-              <div className="tree-add-menu" role="menu">
-                {actionGroups.map((group) => {
-                  const groupActions = addActions.filter(
-                    (action) => action.group === group,
+              <button
+                aria-label={`Add inside or alongside this ${treeTypeLabels[
+                  node.type
+                ].toLowerCase()}`}
+                aria-expanded={addMenuKey === addKey}
+                className={
+                  node.type === "solution"
+                    ? "tree-icon-button add-dropdown-button"
+                    : "tree-action-button add-dropdown-button"
+                }
+                onClick={() => {
+                  setDeleteConfirm(null);
+                  setAddMenuKey((current) =>
+                    current === addKey ? null : addKey,
                   );
+                }}
+                title="Add"
+                type="button"
+              >
+                <Plus aria-hidden="true" size={14} />
+                {node.type === "solution" ? (
+                  <span className="icon-tooltip">Add</span>
+                ) : (
+                  <>
+                    <span>Add</span>
+                    <ChevronDown aria-hidden="true" size={13} />
+                  </>
+                )}
+              </button>
 
-                  if (groupActions.length === 0) {
-                    return null;
-                  }
+              {addMenuKey === addKey ? (
+                <div className="tree-add-menu" role="menu">
+                  {actionGroups.map((group) => {
+                    const groupActions = addActions.filter(
+                      (action) => action.group === group,
+                    );
 
-                  return (
-                    <div className="tree-add-menu-group" key={group}>
-                      <div className="tree-add-menu-label">
-                        <span>{group === "alongside" ? "Alongside" : "Inside"}</span>
-                        <small>
-                          {group === "alongside"
-                            ? "Same level, next to this card"
-                            : "Nested one level deeper"}
-                        </small>
-                      </div>
-                      {groupActions.map((action) => (
-                        <button
-                          aria-disabled={Boolean(action.disabledReason)}
-                          className={`tree-add-menu-item ${
-                            action.disabledReason ? "disabled" : ""
-                          }`}
-                          disabled={Boolean(action.disabledReason)}
-                          key={action.id}
-                          onClick={() => openTreeAction(node, action, depth)}
-                          role="menuitem"
-                          type="button"
-                        >
-                          <Circle aria-hidden="true" size={13} />
+                    if (groupActions.length === 0) {
+                      return null;
+                    }
+
+                    return (
+                      <div className="tree-add-menu-group" key={group}>
+                        <div className="tree-add-menu-label">
                           <span>
-                            <strong>{action.label}</strong>
-                            <small>
-                              {action.disabledReason ?? action.helper}
-                            </small>
+                            {group === "alongside" ? "Alongside" : "Inside"}
                           </span>
-                        </button>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : null}
+                          <small>
+                            {group === "alongside"
+                              ? "Same level, next to this card"
+                              : "Nested one level deeper"}
+                          </small>
+                        </div>
+                        {groupActions.map((action) => (
+                          <button
+                            aria-disabled={Boolean(action.disabledReason)}
+                            className={`tree-add-menu-item ${
+                              action.disabledReason ? "disabled" : ""
+                            }`}
+                            disabled={Boolean(action.disabledReason)}
+                            key={action.id}
+                            onClick={() => openTreeAction(node, action, depth)}
+                            role="menuitem"
+                            type="button"
+                          >
+                            <Circle aria-hidden="true" size={13} />
+                            <span>
+                              <strong>{action.label}</strong>
+                              <small>
+                                {action.disabledReason ?? action.helper}
+                              </small>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
           ) : null}
-          {node.type !== "outcome" ? (
+          {node.type === "solution" ? (
+            <div className="tree-more-wrap">
+              <button
+                aria-expanded={addMenuKey === moreKey}
+                aria-label="More solution actions"
+                className="tree-icon-button tree-more-button"
+                onClick={() => {
+                  setDeleteConfirm(null);
+                  setAddMenuKey((current) =>
+                    current === moreKey ? null : moreKey,
+                  );
+                }}
+                title="More actions"
+                type="button"
+              >
+                <MoreHorizontal aria-hidden="true" size={16} />
+                <span className="icon-tooltip">More actions</span>
+              </button>
+              {addMenuKey === moreKey ? (
+                <div className="tree-more-menu" role="menu">
+                  <button
+                    className="tree-more-menu-item"
+                    disabled={busy}
+                    onClick={() => {
+                      void setSolutionCompletion(
+                        node.id,
+                        isCompletedSolution ? "active" : "completed",
+                      );
+                      setAddMenuKey(null);
+                    }}
+                    role="menuitem"
+                    type="button"
+                  >
+                    <CheckCircle2 aria-hidden="true" size={14} />
+                    <span>{isCompletedSolution ? "Reopen" : "Complete"}</span>
+                  </button>
+                  <button
+                    className="tree-more-menu-item danger"
+                    onClick={() => {
+                      setAddMenuKey(null);
+                      setDeleteConfirm({
+                        nodeId: node.id,
+                        itemLabel: treeTypeLabels[node.type].toLowerCase(),
+                        nestedCount: countNestedItems(node),
+                      });
+                    }}
+                    role="menuitem"
+                    type="button"
+                  >
+                    <Trash2 aria-hidden="true" size={14} />
+                    <span>Delete</span>
+                  </button>
+                </div>
+              ) : null}
+              {deleteTarget ? (
+                <div className="delete-confirm-popover">
+                  <p>{buildDeletePrompt(deleteTarget)}</p>
+                  <div className="delete-confirm-actions">
+                    <button
+                      className="secondary-button"
+                      onClick={() => setDeleteConfirm(null)}
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="primary-button danger"
+                      disabled={busy}
+                      onClick={() => deleteTreeNode(node)}
+                      type="button"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : node.type !== "outcome" ? (
             <div className="tree-delete-wrap">
               <button
                 aria-label={`Delete ${treeTypeLabels[node.type].toLowerCase()}`}
