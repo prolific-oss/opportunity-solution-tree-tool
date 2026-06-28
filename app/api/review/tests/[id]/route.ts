@@ -14,6 +14,7 @@ export async function PATCH(
   try {
     const { id } = await context.params;
     const payload = (await request.json()) as {
+      assumptionNodeId?: string;
       assumptionTitle?: string;
       assumptionType?:
         | "desirability"

@@ -1439,6 +1439,7 @@ export async function reorderNodeRecord(input: {
 export async function updateTestRecord(
   testId: string,
   input: {
+    assumptionNodeId?: string;
     assumptionTitle?: string;
     assumptionType?: AssumptionType;
     owner?: string;
@@ -1465,31 +1466,99 @@ export async function updateTestRecord(
     throw new Error("Assumption test not found.");
   }
 
+  const requestedAssumptionNodeId =
+    typeof input.assumptionNodeId === "string"
+      ? input.assumptionNodeId.trim()
+      : existing.assumptionNodeId;
+
+  const [targetAssumptionNode] = await db
+    .select()
+    .from(ostNodes)
+    .where(
+      and(
+        eq(ostNodes.id, requestedAssumptionNodeId),
+        eq(ostNodes.nodeType, "assumption"),
+      ),
+    )
+    .limit(1);
+
+  if (!targetAssumptionNode?.parentId) {
+    throw new Error("Destination assumption not found.");
+  }
+
+  const [targetSolutionNode] = await db
+    .select()
+    .from(ostNodes)
+    .where(
+      and(
+        eq(ostNodes.id, targetAssumptionNode.parentId),
+        eq(ostNodes.nodeType, "solution"),
+      ),
+    )
+    .limit(1);
+
+  if (!targetSolutionNode) {
+    throw new Error("Destination solution not found.");
+  }
+
+  const movingAssumptions =
+    targetAssumptionNode.id !== existing.assumptionNodeId;
+  const payload: Partial<typeof assumptionTests.$inferInsert> = {};
+
+  if (movingAssumptions) {
+    const siblingTests = await db
+      .select({
+        sortOrder: assumptionTests.sortOrder,
+        reviewPriority: assumptionTests.reviewPriority,
+      })
+      .from(assumptionTests)
+      .where(eq(assumptionTests.assumptionNodeId, targetAssumptionNode.id));
+
+    const nextOrder =
+      siblingTests.reduce(
+        (max, test) => Math.max(max, test.sortOrder, test.reviewPriority),
+        0,
+      ) + 1;
+
+    payload.assumptionNodeId = targetAssumptionNode.id;
+    payload.solutionNodeId = targetSolutionNode.id;
+    payload.title = targetAssumptionNode.title;
+    payload.assumptionType = defaultAssumptionType(
+      targetAssumptionNode.assumptionType,
+    );
+    payload.sortOrder = nextOrder;
+    payload.reviewPriority = nextOrder;
+  }
+
   if (typeof input.assumptionTitle === "string") {
+    const assumptionTitle = input.assumptionTitle.trim();
+
     await db
       .update(ostNodes)
-      .set({ title: input.assumptionTitle.trim() })
-      .where(eq(ostNodes.id, existing.assumptionNodeId));
+      .set({ title: assumptionTitle })
+      .where(eq(ostNodes.id, targetAssumptionNode.id));
 
     await db
       .update(assumptionTests)
-      .set({ title: input.assumptionTitle.trim() })
-      .where(eq(assumptionTests.assumptionNodeId, existing.assumptionNodeId));
+      .set({ title: assumptionTitle })
+      .where(eq(assumptionTests.assumptionNodeId, targetAssumptionNode.id));
+
+    payload.title = assumptionTitle;
   }
 
   if (typeof input.assumptionType === "string") {
     await db
       .update(ostNodes)
       .set({ assumptionType: input.assumptionType })
-      .where(eq(ostNodes.id, existing.assumptionNodeId));
+      .where(eq(ostNodes.id, targetAssumptionNode.id));
 
     await db
       .update(assumptionTests)
       .set({ assumptionType: input.assumptionType })
-      .where(eq(assumptionTests.assumptionNodeId, existing.assumptionNodeId));
-  }
+      .where(eq(assumptionTests.assumptionNodeId, targetAssumptionNode.id));
 
-  const payload: Partial<typeof assumptionTests.$inferInsert> = {};
+    payload.assumptionType = input.assumptionType;
+  }
 
   if (typeof input.owner === "string") {
     payload.owner = input.owner.trim();

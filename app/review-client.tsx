@@ -11,6 +11,7 @@ import {
   Lightbulb,
   ListFilter,
   MoreHorizontal,
+  MoveRight,
   Network,
   Pin,
   Plus,
@@ -21,7 +22,7 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import OutcomeProgress from "@/app/outcome-progress";
 import type { CSSProperties, DragEvent } from "react";
 import type {
@@ -86,6 +87,7 @@ type DeleteConfirmTarget = {
 };
 
 type TestDraft = {
+  assumptionNodeId: string;
   assumptionTitle: string;
   assumptionType: AssumptionType;
   owner: string;
@@ -222,6 +224,7 @@ const treeTypeMeta: Record<
 
 function draftFromTest(test: ReviewTest): TestDraft {
   return {
+    assumptionNodeId: test.assumptionNodeId,
     assumptionTitle: test.assumption,
     assumptionType: test.assumptionType,
     owner: test.owner,
@@ -726,12 +729,42 @@ function withUpdatedTest(
     return review;
   }
 
+  const targetAssumption =
+    review.assumptions.find(
+      (assumption) => assumption.id === draft.assumptionNodeId,
+    ) ??
+    review.assumptions.find(
+      (assumption) => assumption.id === existingTest.assumptionNodeId,
+    );
+
+  if (!targetAssumption) {
+    return review;
+  }
+
   const assumptionTitle = draft.assumptionTitle.trim();
+  const movingAssumptions = targetAssumption.id !== existingTest.assumptionNodeId;
+  const nextReviewPriority = movingAssumptions
+    ? review.tests
+        .filter(
+          (test) =>
+            test.assumptionNodeId === targetAssumption.id && test.id !== testId,
+        )
+        .reduce((max, test) => Math.max(max, test.reviewPriority), 0) + 1
+    : existingTest.reviewPriority;
 
   return normalizeReviewState({
     ...review,
+    tree: review.tree.map((node) =>
+      node.id === targetAssumption.id
+        ? {
+            ...node,
+            title: assumptionTitle,
+            assumptionType: draft.assumptionType,
+          }
+        : node,
+    ),
     assumptions: review.assumptions.map((assumption) =>
-      assumption.id === existingTest.assumptionNodeId
+      assumption.id === targetAssumption.id
         ? {
             ...assumption,
             title: assumptionTitle,
@@ -741,7 +774,7 @@ function withUpdatedTest(
     ),
     tests: review.tests.map((test) => {
       const sharedAssumptionUpdate =
-        test.assumptionNodeId === existingTest.assumptionNodeId
+        test.assumptionNodeId === targetAssumption.id
           ? {
               assumption: assumptionTitle,
               assumptionType: draft.assumptionType,
@@ -758,6 +791,11 @@ function withUpdatedTest(
       return {
         ...test,
         ...sharedAssumptionUpdate,
+        assumptionNodeId: targetAssumption.id,
+        solutionId: targetAssumption.solutionId,
+        solutionName: targetAssumption.solutionName,
+        assumption: assumptionTitle,
+        assumptionType: draft.assumptionType,
         owner: draft.owner.trim(),
         role: draft.ownerRole.trim(),
         dueDate: draft.dueDate,
@@ -767,8 +805,46 @@ function withUpdatedTest(
         progress: draft.progressNotes.trim(),
         verdict: draft.verdict,
         evidence: draft.evidence.trim(),
+        reviewPriority: nextReviewPriority,
       };
     }),
+  });
+}
+
+function withMovedTest(
+  review: ReviewState,
+  testId: string,
+  targetAssumption: ReviewAssumption,
+): ReviewState {
+  const existingTest = review.tests.find((test) => test.id === testId);
+
+  if (!existingTest || existingTest.assumptionNodeId === targetAssumption.id) {
+    return review;
+  }
+
+  const nextReviewPriority =
+    review.tests
+      .filter(
+        (test) =>
+          test.assumptionNodeId === targetAssumption.id && test.id !== testId,
+      )
+      .reduce((max, test) => Math.max(max, test.reviewPriority), 0) + 1;
+
+  return normalizeReviewState({
+    ...review,
+    tests: review.tests.map((test) =>
+      test.id === testId
+        ? {
+            ...test,
+            assumptionNodeId: targetAssumption.id,
+            solutionId: targetAssumption.solutionId,
+            solutionName: targetAssumption.solutionName,
+            assumption: targetAssumption.title,
+            assumptionType: targetAssumption.assumptionType,
+            reviewPriority: nextReviewPriority,
+          }
+        : test,
+    ),
   });
 }
 
@@ -1017,6 +1093,7 @@ export default function ReviewClient({
     string[] | null
   >(null);
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
+  const [moveTestId, setMoveTestId] = useState<string | null>(null);
   const [treeOpen, setTreeOpen] = useState(false);
   const [expandedTreeOpportunityIds, setExpandedTreeOpportunityIds] = useState<
     string[]
@@ -1052,6 +1129,7 @@ export default function ReviewClient({
     "idle" | "saving" | "saved" | "error"
   >("idle");
   const [busy, setBusy] = useState(false);
+  const moveTestRowRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!treeOpen && !settingsOpen) {
@@ -1101,6 +1179,25 @@ export default function ReviewClient({
       ),
     [focusedSolutionFilterIds, selectedSolutionFilterIds],
   );
+
+  useEffect(() => {
+    if (!treeOpen || !moveTestId || !moveTestRowRef.current) {
+      return;
+    }
+
+    moveTestRowRef.current.scrollIntoView({
+      block: "center",
+      behavior: "smooth",
+    });
+    moveTestRowRef.current.focus({ preventScroll: true });
+  }, [
+    expandedTreeAssumptionIds,
+    expandedTreeOpportunityIds,
+    expandedTreeSolutionIds,
+    moveTestId,
+    treeOpen,
+  ]);
+
   const activeSelectedSolutionId =
     activeSolutionFilterIds.length === 1 ? activeSolutionFilterIds[0] : null;
   const filtersActive =
@@ -1109,6 +1206,10 @@ export default function ReviewClient({
   const selectedTest =
     selectedTestId && review.tests.some((test) => test.id === selectedTestId)
       ? review.tests.find((test) => test.id === selectedTestId) ?? null
+      : null;
+  const movingTreeTest =
+    moveTestId && review.tests.some((test) => test.id === moveTestId)
+      ? review.tests.find((test) => test.id === moveTestId) ?? null
       : null;
 
   function syncSelectedTest(nextReview: ReviewState, nextTestId: string | null) {
@@ -1124,6 +1225,10 @@ export default function ReviewClient({
   }
 
   function selectTest(nextTestId: string | null, nextReview = review) {
+    if (nextTestId == null || nextTestId !== moveTestId) {
+      setMoveTestId(null);
+    }
+
     syncSelectedTest(nextReview, nextTestId);
   }
 
@@ -1187,6 +1292,40 @@ export default function ReviewClient({
   function getTreeChildren(parentId: string | null, type?: TreeNodeType) {
     const children = treeChildrenByParent.get(parentId ?? "root") ?? [];
     return type ? children.filter((node) => node.type === type) : children;
+  }
+
+  function expandTreePathToAssumption(assumptionId: string) {
+    const assumptionIds: string[] = [];
+    const opportunityIds: string[] = [];
+    const solutionIds: string[] = [];
+    let current = treeNodesById.get(assumptionId);
+
+    while (current?.parentId) {
+      if (current.type === "assumption") {
+        assumptionIds.push(current.id);
+      }
+
+      current = treeNodesById.get(current.parentId);
+
+      if (current?.type === "solution") {
+        solutionIds.push(current.id);
+      } else if (current?.type === "opportunity") {
+        opportunityIds.push(current.id);
+      }
+    }
+
+    setExpandedTreeAssumptionIds((ids) => [
+      ...ids,
+      ...assumptionIds.filter((id) => !ids.includes(id)),
+    ]);
+    setExpandedTreeSolutionIds((ids) => [
+      ...ids,
+      ...solutionIds.filter((id) => !ids.includes(id)),
+    ]);
+    setExpandedTreeOpportunityIds((ids) => [
+      ...ids,
+      ...opportunityIds.filter((id) => !ids.includes(id)),
+    ]);
   }
 
   const treeOutcome =
@@ -1522,6 +1661,88 @@ export default function ReviewClient({
     setSelectedOpportunityFilterIds((current) =>
       toggleFilterValue(current, opportunityId, focusedOpportunityFilterIds),
     );
+  }
+
+  function openTestMoveMode() {
+    if (!selectedTest) {
+      return;
+    }
+
+    setMoveTestId(selectedTest.id);
+    setTreeOpen(true);
+    setAddMenuKey(null);
+    setDeleteConfirm(null);
+    setInlineAdd(null);
+    setTreeEdit(null);
+    setTreeMessage("");
+    expandTreePathToAssumption(selectedTest.assumptionNodeId);
+  }
+
+  function closeTreeDrawer() {
+    setTreeOpen(false);
+    setMoveTestId(null);
+    setTreeMessage("");
+  }
+
+  async function moveTreeTestToAssumption(targetAssumptionId: string) {
+    const testToMove = movingTreeTest;
+    const targetAssumption = review.assumptions.find(
+      (assumption) => assumption.id === targetAssumptionId,
+    );
+
+    if (!testToMove || !targetAssumption) {
+      return;
+    }
+
+    if (testToMove.assumptionNodeId === targetAssumption.id) {
+      setTreeMessage("This test is already under that assumption.");
+      return;
+    }
+
+    const previousReview = review;
+    const previousDraft = detailDraft;
+    const previousSelectedSolutionFilterIds = selectedSolutionFilterIds;
+    const nextReview = withMovedTest(review, testToMove.id, targetAssumption);
+    const movedTest =
+      nextReview.tests.find((test) => test.id === testToMove.id) ?? testToMove;
+
+    setReview(nextReview);
+    setSelectedTestId(movedTest.id);
+    setSelectedSolutionFilterIds([targetAssumption.solutionId]);
+    setDetailDraft((current) =>
+      current && current.assumptionNodeId === testToMove.assumptionNodeId
+        ? {
+            ...current,
+            assumptionNodeId: targetAssumption.id,
+            assumptionTitle: targetAssumption.title,
+            assumptionType: targetAssumption.assumptionType,
+          }
+        : draftFromTest(movedTest),
+    );
+    setTreeMessage("Moving test...");
+    setBusy(true);
+    expandTreePathToAssumption(targetAssumption.id);
+
+    try {
+      await parseJson<{ ok: true }>(
+        await fetch(`/api/review/tests/${testToMove.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assumptionNodeId: targetAssumption.id }),
+        }),
+      );
+
+      setTreeMessage("Moved test. Choose another destination or close the tree.");
+      setConfirmationMessage(`Test moved: ${movedTest.test || "Untitled test"}`);
+    } catch (error) {
+      setReview(previousReview);
+      setSelectedTestId(testToMove.id);
+      setSelectedSolutionFilterIds(previousSelectedSolutionFilterIds);
+      setDetailDraft(previousDraft);
+      setTreeMessage(error instanceof Error ? error.message : "Could not move test.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   function toggleExpandedOpportunity(nodeId: string) {
@@ -2271,6 +2492,10 @@ export default function ReviewClient({
       node.type === "assumption"
         ? review.tests.filter((test) => test.assumptionNodeId === node.id).length
         : 0;
+    const isMoveSourceAssumption =
+      node.type === "assumption" && movingTreeTest?.assumptionNodeId === node.id;
+    const canMoveTestHere =
+      node.type === "assumption" && Boolean(movingTreeTest) && !isMoveSourceAssumption;
     const isFocusSolution = node.type === "solution" && node.isFocus;
     const isFocusRow = isFocusOpportunity || isFocusSolution;
     const isFocusPathRow =
@@ -2298,7 +2523,9 @@ export default function ReviewClient({
           isFocusRow ? "focused" : ""
         } ${isFocusPathRow ? "focus-path" : ""} ${
           isMutedRow ? "muted" : ""
-        } ${hasOpenTreePopover ? "popover-open" : ""}`}
+        } ${isMoveSourceAssumption ? "move-source-assumption" : ""} ${
+          hasOpenTreePopover ? "popover-open" : ""
+        }`}
         draggable={canDrag && !busy}
         onDragEnd={() => setTreeDrag(null)}
         onDragOver={(event) => {
@@ -2396,6 +2623,23 @@ export default function ReviewClient({
         </div>
 
         <div className="tree-row-actions">
+          {isMoveSourceAssumption ? (
+            <span className="tree-current-move-pill">Current</span>
+          ) : null}
+          {canMoveTestHere ? (
+            <button
+              className="tree-move-here-button"
+              disabled={busy}
+              onClick={(event) => {
+                event.stopPropagation();
+                void moveTreeTestToAssumption(node.id);
+              }}
+              type="button"
+            >
+              <MoveRight aria-hidden="true" size={13} />
+              <span>Move here</span>
+            </button>
+          ) : null}
           {node.type === "opportunity" && opportunityNestedCount > 0 ? (
             <button
               aria-expanded={isOpportunityExpanded}
@@ -2734,12 +2978,14 @@ export default function ReviewClient({
 
     const previousReview = review;
     const previousDraft = detailDraft;
+    const previousSelectedSolutionFilterIds = selectedSolutionFilterIds;
     const nextReview = withUpdatedTest(review, selectedTest.id, detailDraft);
     const nextTest =
       nextReview.tests.find((test) => test.id === selectedTest.id) ?? selectedTest;
 
     setReview(nextReview);
     setSelectedTestId(nextTest.id);
+    setSelectedSolutionFilterIds([nextTest.solutionId]);
     setDetailDraft(draftFromTest(nextTest));
     setDetailState("saving");
     setDetailMessage("Saving changes...");
@@ -2750,7 +2996,10 @@ export default function ReviewClient({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(detailDraft),
+        body: JSON.stringify({
+          ...detailDraft,
+          assumptionNodeId: detailDraft.assumptionNodeId,
+        }),
       });
 
       await parseJson<{ ok: true }>(response);
@@ -2759,6 +3008,7 @@ export default function ReviewClient({
     } catch (error) {
       setReview(previousReview);
       setSelectedTestId(selectedTest.id);
+      setSelectedSolutionFilterIds(previousSelectedSolutionFilterIds);
       setDetailDraft(previousDraft);
       setDetailState("error");
       setDetailMessage(
@@ -3375,15 +3625,28 @@ export default function ReviewClient({
             {tests.length > 0 ? (
               tests.map((test) => {
                 const status = statusMeta[test.status];
+                const isMovingTest = moveTestId === test.id;
 
                 return (
                   <button
-                    className="tree-test-row"
+                    aria-current={isMovingTest ? "true" : undefined}
+                    className={`tree-test-row ${isMovingTest ? "move-source-test" : ""}`}
                     key={test.id}
                     onClick={() => {
+                      if (moveTestId) {
+                        return;
+                      }
+
                       selectTest(test.id);
                       setTreeOpen(false);
                     }}
+                    ref={
+                      isMovingTest
+                        ? (element) => {
+                            moveTestRowRef.current = element;
+                          }
+                        : undefined
+                    }
                     type="button"
                   >
                     <span
@@ -3933,6 +4196,14 @@ export default function ReviewClient({
               <div className="detail-assumption-row">
                 <span>{buildSiblingLabel(siblingTests, selectedTest.id)}</span>
                 <button
+                  className="detail-link-button"
+                  onClick={openTestMoveMode}
+                  type="button"
+                >
+                  <MoveRight aria-hidden="true" size={12} />
+                  Move to another assumption
+                </button>
+                <button
                   className="add-inline-button"
                   onClick={() =>
                     openInlineAdd("test", {
@@ -4310,7 +4581,7 @@ export default function ReviewClient({
       {treeOpen ? (
         <div
           className="modal-scrim drawer-scrim"
-          onClick={() => setTreeOpen(false)}
+          onClick={closeTreeDrawer}
           role="presentation"
         >
           <div
@@ -4329,7 +4600,7 @@ export default function ReviewClient({
               <div className="modal-header-actions">
                 <button
                   className="detail-close"
-                  onClick={() => setTreeOpen(false)}
+                  onClick={closeTreeDrawer}
                   type="button"
                 >
                   <X aria-hidden="true" size={16} />
@@ -4338,6 +4609,26 @@ export default function ReviewClient({
             </div>
 
             {treeMessage ? <p className="modal-message">{treeMessage}</p> : null}
+
+            {movingTreeTest ? (
+              <div className="tree-move-banner">
+                <MoveRight aria-hidden="true" size={16} />
+                <div>
+                  <strong>Move this test to another assumption</strong>
+                  <span>{movingTreeTest.test || "Untitled test"}</span>
+                </div>
+                <button
+                  className="secondary-button compact"
+                  onClick={() => {
+                    setMoveTestId(null);
+                    setTreeMessage("");
+                  }}
+                  type="button"
+                >
+                  Done
+                </button>
+              </div>
+            ) : null}
 
             <div className="tree-branch">
               {renderTreeRow(treeOutcome, {

@@ -81,6 +81,9 @@ The detail panel lets users inspect and edit one test.
 - Shows the solution context.
 - Shows and edits the assumption being tested.
 - Shows sibling-test context for the same assumption.
+- Moves the selected test to another assumption from the full tree: the detail
+  panel opens the tree at the current test, highlights its current assumption,
+  and shows `Move here` actions on other assumptions.
 - Lets users add another test for the same assumption.
 - Edits assumption type.
 - Assigns owner and owner role.
