@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { getDb } from "@/db";
+import { getDb, isDefaultReviewDatabase } from "@/db";
 import { ensureReviewStorage } from "@/db/bootstrap";
 import { assumptionTests, ostNodes, outcomeMetrics, teamMembers } from "@/db/schema";
 
@@ -122,6 +122,20 @@ const SEED_SOLUTION_ID = "solution-activity-insights-pgs-ui";
 
 let assumptionTypesBackfilled = false;
 
+const QA_FIXTURE_ERROR =
+  "QA fixture data must use a disposable REVIEW_DB_PATH, not the default local database.";
+const QA_FIXTURE_MARKERS = new Set([
+  "Disposable multi-focus visual QA fixture.",
+  "Clear visual QA signal.",
+]);
+
+export class QaFixtureDataError extends Error {
+  constructor() {
+    super(QA_FIXTURE_ERROR);
+    this.name = "QaFixtureDataError";
+  }
+}
+
 const seedMetrics = [
   "Increase % of studies launched with x% or higher ratio of 7-day-active to eligible participants",
   "Increase % of studies launched with 10% or lower ratio of eligible-to-places-requested",
@@ -174,6 +188,23 @@ const seedAssumptions = [
 
 function shortNameFromTitle(title: string) {
   return title.trim().split(/\s+/).slice(0, 2).join(" ");
+}
+
+function assertNoQaFixtureDataInDefaultDatabase(
+  fields: Record<string, string | null | undefined>,
+) {
+  if (!isDefaultReviewDatabase()) {
+    return;
+  }
+
+  const hasFixtureData = Object.values(fields).some((value) => {
+    const text = value?.trim();
+    return !!text && (/^QA\s*:/i.test(text) || QA_FIXTURE_MARKERS.has(text));
+  });
+
+  if (hasFixtureData) {
+    throw new QaFixtureDataError();
+  }
 }
 
 function compareByPriority(
@@ -996,6 +1027,8 @@ export async function createOpportunityRecord(input: {
   const title = input.title.trim();
   const description = input.description.trim();
 
+  assertNoQaFixtureDataInDefaultDatabase({ title, description });
+
   const [parent] = await db
     .select()
     .from(ostNodes)
@@ -1054,6 +1087,8 @@ export async function createSolutionRecord(input: {
   const db = getDb();
   const title = input.title.trim();
   const description = input.description.trim();
+
+  assertNoQaFixtureDataInDefaultDatabase({ title, description });
 
   const nodes = await db
     .select()
@@ -1167,6 +1202,8 @@ export async function createAssumptionRecord(input: {
   const id = crypto.randomUUID();
   const title = input.title.trim();
 
+  assertNoQaFixtureDataInDefaultDatabase({ title });
+
   await db.insert(ostNodes).values({
     id,
     outcomeId: solution.outcomeId,
@@ -1248,6 +1285,8 @@ export async function createTestRecord(input: {
   const testDescription = input.testDescription.trim();
   const successCriteria = input.successCriteria.trim();
   const owner = input.owner.trim();
+
+  assertNoQaFixtureDataInDefaultDatabase({ testDescription, successCriteria });
 
   await db.insert(assumptionTests).values({
     id,
@@ -1351,6 +1390,10 @@ export async function updateNodeRecord(
   }
 
   if (Object.keys(payload).length > 0) {
+    assertNoQaFixtureDataInDefaultDatabase({
+      title: payload.title,
+      description: payload.description,
+    });
     await db.update(ostNodes).set(payload).where(eq(ostNodes.id, nodeId));
   }
 
@@ -1533,6 +1576,8 @@ export async function updateTestRecord(
   if (typeof input.assumptionTitle === "string") {
     const assumptionTitle = input.assumptionTitle.trim();
 
+    assertNoQaFixtureDataInDefaultDatabase({ assumptionTitle });
+
     await db
       .update(ostNodes)
       .set({ title: assumptionTitle })
@@ -1589,6 +1634,11 @@ export async function updateTestRecord(
   }
 
   if (Object.keys(payload).length > 0) {
+    assertNoQaFixtureDataInDefaultDatabase({
+      testDescription: payload.testDescription,
+      successCriteria: payload.successCriteria,
+      title: payload.title,
+    });
     await db.update(assumptionTests).set(payload).where(eq(assumptionTests.id, testId));
   }
 }

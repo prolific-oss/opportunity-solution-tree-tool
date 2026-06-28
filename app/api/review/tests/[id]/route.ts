@@ -1,10 +1,18 @@
-import { deleteTestRecord, updateTestRecord } from "@/lib/review-data";
+import {
+  deleteTestRecord,
+  QaFixtureDataError,
+  updateTestRecord,
+} from "@/lib/review-data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function toRouteErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unexpected error";
+}
+
+function toRouteErrorStatus(error: unknown) {
+  return error instanceof QaFixtureDataError ? 400 : 500;
 }
 
 export async function PATCH(
@@ -38,7 +46,7 @@ export async function PATCH(
   } catch (error) {
     return Response.json(
       { error: toRouteErrorMessage(error) },
-      { status: 500 },
+      { status: toRouteErrorStatus(error) },
     );
   }
 }
@@ -54,7 +62,7 @@ export async function DELETE(
   } catch (error) {
     return Response.json(
       { error: toRouteErrorMessage(error) },
-      { status: 500 },
+      { status: toRouteErrorStatus(error) },
     );
   }
 }

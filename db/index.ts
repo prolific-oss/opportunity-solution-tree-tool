@@ -12,12 +12,28 @@ const DEFAULT_DATABASE_PATH = path.join(
 
 let sqlite: Database.Database | null = null;
 
+export function getReviewDatabasePath() {
+  const configuredPath = process.env.REVIEW_DB_PATH;
+
+  if (!configuredPath) {
+    return DEFAULT_DATABASE_PATH;
+  }
+
+  return path.isAbsolute(configuredPath)
+    ? path.normalize(configuredPath)
+    : path.join(/* turbopackIgnore: true */ process.cwd(), configuredPath);
+}
+
+export function isDefaultReviewDatabase() {
+  return getReviewDatabasePath() === DEFAULT_DATABASE_PATH;
+}
+
 export function getSqlite() {
   if (sqlite) {
     return sqlite;
   }
 
-  const databasePath = process.env.REVIEW_DB_PATH ?? DEFAULT_DATABASE_PATH;
+  const databasePath = getReviewDatabasePath();
   mkdirSync(path.dirname(databasePath), { recursive: true });
 
   sqlite = new Database(databasePath);

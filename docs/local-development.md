@@ -48,16 +48,8 @@ Use a different database file with:
 REVIEW_DB_PATH=/absolute/path/to/review.sqlite npm run dev
 ```
 
-## Multi-Focus Visual QA Fixture
-
-Use the multi-focus fixture when checking queue and filter behavior across several focused opportunities and solutions. Run it against a disposable database so your normal local data is untouched.
-
-```bash
-REVIEW_DB_PATH=/tmp/continuous-discovery-qa.sqlite npm run dev -- --port 3002
-npm run qa:seed-multi-focus -- http://127.0.0.1:3002
-```
-
-The script creates or reuses `QA:` opportunities, focused solutions, assumptions, and tests through the local API. It only seeds data; it does not start or stop the app.
+The default local database rejects disposable fixture content such as `QA:` rows.
+Use `REVIEW_DB_PATH` when experimenting with throwaway data.
 
 ## Useful Commands
 
@@ -66,4 +58,3 @@ The script creates or reuses `QA:` opportunities, focused solutions, assumptions
 - `npm run start`: run the production build locally.
 - `npm run lint`: run ESLint.
 - `npm run db:generate`: generate Drizzle migrations after schema changes.
-- `npm run qa:seed-multi-focus -- <local-url>`: seed a disposable multi-focus fixture for visual QA.
