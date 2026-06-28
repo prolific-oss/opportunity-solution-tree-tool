@@ -4,7 +4,7 @@ This document describes the user-facing functionality in the Continuous Discover
 
 ## App Purpose
 
-The app is a local-first review command center for an Opportunity Solution Tree. It helps a team review the current outcome, inspect opportunity branches, focus on one opportunity, prioritize solutions, track assumptions and tests, assign owners, and review outcome progress.
+The app is a local-first review command center for an Opportunity Solution Tree. It helps a team review the current outcome, inspect opportunity branches, focus as many opportunities as needed, prioritize solutions, track assumptions and tests, assign owners, and review outcome progress.
 
 ## Top Navigation
 
@@ -140,8 +140,8 @@ Expand/collapse controls are intentionally scoped to the tree drawer.
 
 ### Focus and Visual State
 
-- Opportunity focus has one terminal focused opportunity at a time.
-- The focused opportunity's lineage is also in focus, so its parent opportunities and the outcome remain visibly active.
+- Any number of terminal opportunities can be in focus at the same time.
+- Each focused opportunity's lineage is also in focus, so parent opportunities and the outcome remain visibly active.
 - Solution focus has a global cap of three focused solutions.
 - Focused solutions also focus their lineage, including parent solutions, parent opportunities, and the outcome.
 - Focused rows have a clear focus pill and stronger focus styling.
@@ -177,7 +177,7 @@ The `Add` menu adapts to the selected tree node.
 - Opportunity and solution descriptions can be edited inline.
 - Assumption type can be edited inline.
 - Solution completion can be toggled between active and completed from the solution row overflow menu.
-- Opportunities can be set as the focused opportunity.
+- Opportunities can be added to the current focus set.
 - Up to three solutions can be set as focused solutions.
 
 ### Delete Actions

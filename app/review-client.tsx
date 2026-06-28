@@ -1153,20 +1153,29 @@ export default function ReviewClient({
       active: true,
       isFocus: true,
     } satisfies ReviewTreeNode);
+  const focusedOpportunityIds = useMemo(
+    () => new Set(review.focusOpportunities.map((opportunity) => opportunity.id)),
+    [review.focusOpportunities],
+  );
   const focusOpportunityPathIds = useMemo(() => {
     const pathIds = new Set<string>();
-    let current: ReviewTreeNode | undefined = treeNodesById.get(
-      review.focusOpportunity.id,
-    );
+    const focusIds =
+      review.focusOpportunities.length > 0
+        ? review.focusOpportunities.map((opportunity) => opportunity.id)
+        : [review.focusOpportunity.id];
 
-    while (current?.type === "opportunity") {
-      pathIds.add(current.id);
-      current =
-        current.parentId != null ? treeNodesById.get(current.parentId) : undefined;
-    }
+    focusIds.forEach((focusId) => {
+      let current: ReviewTreeNode | undefined = treeNodesById.get(focusId);
+
+      while (current?.type === "opportunity") {
+        pathIds.add(current.id);
+        current =
+          current.parentId != null ? treeNodesById.get(current.parentId) : undefined;
+      }
+    });
 
     return pathIds;
-  }, [review.focusOpportunity.id, treeNodesById]);
+  }, [review.focusOpportunities, review.focusOpportunity.id, treeNodesById]);
   function canDropTreeNode(nodeId: string, targetNodeId: string) {
     const node = treeNodesById.get(nodeId);
     const targetNode = treeNodesById.get(targetNodeId);
@@ -2124,7 +2133,7 @@ export default function ReviewClient({
     const opportunityNestedCount =
       opportunityChildCount + opportunitySolutionCount;
     const isFocusOpportunity =
-      node.type === "opportunity" && node.id === review.focusOpportunity.id;
+      node.type === "opportunity" && focusedOpportunityIds.has(node.id);
     const isFocusPathOpportunity =
       node.type === "opportunity" && focusOpportunityPathIds.has(node.id);
     const canSetOpportunityFocus =
@@ -3431,6 +3440,8 @@ export default function ReviewClient({
               Opportunity
             </span>
             <span className="focus-depth">
+              {review.focusOpportunities.length} opportunit
+              {review.focusOpportunities.length === 1 ? "y" : "ies"} in focus ·
               Active path · {Math.max(review.path.length - 1, 1)} levels deep
             </span>
           </div>

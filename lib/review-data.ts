@@ -98,6 +98,11 @@ export type ReviewState = {
     title: string;
     description: string;
   };
+  focusOpportunities: Array<{
+    id: string;
+    title: string;
+    description: string;
+  }>;
   path: ReviewPathNode[];
   tree: ReviewTreeNode[];
   solutions: ReviewSolution[];
@@ -110,8 +115,8 @@ const OUTCOME_ID = "outcome-help-ai-teams-launch-with-confidence";
 const ROOT_OPPORTUNITY_ID = "opp-relevant-engaged-high-quality";
 const FOCUS_OPPORTUNITY_ID = "opp-see-existing-pool-engagement";
 const SEED_SOLUTION_ID = "solution-activity-insights-pgs-ui";
-// Focus is stored as lineage membership: one terminal opportunity, plus up to
-// three terminal solutions, with each focused node's ancestors also marked.
+// Focus is stored as lineage membership: terminal opportunities and up to three
+// terminal solutions, with each focused node's ancestors also marked.
 const MAX_FOCUSED_SOLUTIONS = 3;
 
 let assumptionTypesBackfilled = false;
@@ -328,14 +333,44 @@ function nearestOpportunityAncestor(node: OstNode, nodeMap: Map<string, OstNode>
   return current;
 }
 
-function deepestFocusedOpportunity(nodes: OstNode[], nodeMap: Map<string, OstNode>) {
-  return (
-    nodes
-      .filter((node) => node.nodeType === "opportunity" && node.isFocus)
-      .sort(focusCompare(nodeMap))[0] ??
-    nodeMap.get(FOCUS_OPPORTUNITY_ID) ??
-    nodes.filter((node) => node.nodeType === "opportunity").sort(compareByPriority)[0]
+function terminalFocusedOpportunities(
+  nodes: OstNode[],
+  nodeMap: Map<string, OstNode>,
+) {
+  const focusedOpportunities = nodes.filter(
+    (node) => node.nodeType === "opportunity" && node.isFocus,
   );
+
+  return focusedOpportunities
+    .filter(
+      (opportunity) =>
+        !focusedOpportunities.some(
+          (other) =>
+            other.id !== opportunity.id &&
+            isDescendantOf(other, opportunity.id, nodeMap),
+        ),
+    )
+    .sort(focusCompare(nodeMap));
+}
+
+function focusedOpportunitiesOrFallback(
+  nodes: OstNode[],
+  nodeMap: Map<string, OstNode>,
+) {
+  const focusedOpportunities = terminalFocusedOpportunities(nodes, nodeMap);
+  if (focusedOpportunities.length > 0) {
+    return focusedOpportunities;
+  }
+
+  const fallback =
+    nodeMap.get(FOCUS_OPPORTUNITY_ID) ??
+    nodes.filter((node) => node.nodeType === "opportunity").sort(compareByPriority)[0];
+
+  return fallback ? [fallback] : [];
+}
+
+function primaryFocusedOpportunity(nodes: OstNode[], nodeMap: Map<string, OstNode>) {
+  return focusedOpportunitiesOrFallback(nodes, nodeMap)[0];
 }
 
 function terminalFocusedSolutions(nodes: OstNode[], nodeMap: Map<string, OstNode>) {
@@ -356,7 +391,7 @@ function terminalFocusedSolutions(nodes: OstNode[], nodeMap: Map<string, OstNode
 
 async function persistFocusInvariant(
   outcomeId: string,
-  focusOpportunity: OstNode | undefined,
+  focusedOpportunities: OstNode[],
   focusedSolutions: OstNode[],
 ) {
   const db = getDb();
@@ -367,9 +402,14 @@ async function persistFocusInvariant(
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const focusIds = new Set<string>();
 
-  if (focusOpportunity) {
-    ancestorFocusIds(focusOpportunity, nodeMap).forEach((id) => focusIds.add(id));
-  }
+  focusedOpportunities.forEach((opportunity) => {
+    const current = nodeMap.get(opportunity.id);
+    if (!current) {
+      return;
+    }
+
+    ancestorFocusIds(current, nodeMap).forEach((id) => focusIds.add(id));
+  });
 
   focusedSolutions.forEach((solution) => {
     const current = nodeMap.get(solution.id);
@@ -400,16 +440,13 @@ async function normalizeFocusState(outcomeId: string) {
     .from(ostNodes)
     .where(eq(ostNodes.outcomeId, outcomeId));
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
-  const focusOpportunity = deepestFocusedOpportunity(nodes, nodeMap);
-  const focusedSolutions = terminalFocusedSolutions(nodes, nodeMap)
-    .filter((solution) =>
-      focusOpportunity
-        ? isNodeOrDescendantOf(solution, focusOpportunity.id, nodeMap)
-        : true,
-    )
-    .slice(0, MAX_FOCUSED_SOLUTIONS);
+  const focusedOpportunities = focusedOpportunitiesOrFallback(nodes, nodeMap);
+  const focusedSolutions = terminalFocusedSolutions(nodes, nodeMap).slice(
+    0,
+    MAX_FOCUSED_SOLUTIONS,
+  );
 
-  await persistFocusInvariant(outcomeId, focusOpportunity, focusedSolutions);
+  await persistFocusInvariant(outcomeId, focusedOpportunities, focusedSolutions);
 }
 
 async function setOpportunityFocus(node: OstNode) {
@@ -419,11 +456,22 @@ async function setOpportunityFocus(node: OstNode) {
     .from(ostNodes)
     .where(eq(ostNodes.outcomeId, node.outcomeId));
   const nodeMap = new Map(nodes.map((current) => [current.id, current]));
-  const focusedSolutions = terminalFocusedSolutions(nodes, nodeMap).filter((solution) =>
-    isNodeOrDescendantOf(solution, node.id, nodeMap),
+  const focusedOpportunities = terminalFocusedOpportunities(nodes, nodeMap).filter(
+    (opportunity) =>
+      opportunity.id !== node.id && !isDescendantOf(opportunity, node.id, nodeMap),
+  );
+  const focusedSolutions = terminalFocusedSolutions(nodes, nodeMap).slice(
+    0,
+    MAX_FOCUSED_SOLUTIONS,
   );
 
-  await persistFocusInvariant(node.outcomeId, node, focusedSolutions);
+  focusedOpportunities.push(node);
+
+  await persistFocusInvariant(
+    node.outcomeId,
+    focusedOpportunities.sort(focusCompare(nodeMap)),
+    focusedSolutions,
+  );
 }
 
 async function setSolutionFocus(node: OstNode, shouldFocus: boolean) {
@@ -433,15 +481,13 @@ async function setSolutionFocus(node: OstNode, shouldFocus: boolean) {
     .from(ostNodes)
     .where(eq(ostNodes.outcomeId, node.outcomeId));
   const nodeMap = new Map(nodes.map((current) => [current.id, current]));
-  const focusOpportunity =
-    nearestOpportunityAncestor(node, nodeMap) ?? deepestFocusedOpportunity(nodes, nodeMap);
-  const focusedSolutions = terminalFocusedSolutions(nodes, nodeMap)
-    .filter((solution) => solution.id !== node.id)
-    .filter((solution) =>
-      focusOpportunity
-        ? isNodeOrDescendantOf(solution, focusOpportunity.id, nodeMap)
-        : true,
-    );
+  const focusOpportunity = nearestOpportunityAncestor(node, nodeMap);
+  const focusedOpportunities = terminalFocusedOpportunities(nodes, nodeMap).filter(
+    (opportunity) => !focusOpportunity || opportunity.id !== focusOpportunity.id,
+  );
+  const focusedSolutions = terminalFocusedSolutions(nodes, nodeMap).filter(
+    (solution) => solution.id !== node.id,
+  );
 
   if (shouldFocus) {
     if (focusedSolutions.length >= MAX_FOCUSED_SOLUTIONS) {
@@ -451,9 +497,13 @@ async function setSolutionFocus(node: OstNode, shouldFocus: boolean) {
     focusedSolutions.push(node);
   }
 
+  if (focusOpportunity) {
+    focusedOpportunities.push(focusOpportunity);
+  }
+
   await persistFocusInvariant(
     node.outcomeId,
-    focusOpportunity,
+    focusedOpportunities.sort(focusCompare(nodeMap)),
     focusedSolutions.sort(compareByPriority),
   );
 }
@@ -667,7 +717,8 @@ export async function getReviewState(): Promise<ReviewState> {
     throw new Error("Outcome node is missing.");
   }
 
-  const focusOpportunity = deepestFocusedOpportunity(nodes, nodeMap);
+  const focusOpportunities = focusedOpportunitiesOrFallback(nodes, nodeMap);
+  const focusOpportunity = focusOpportunities[0];
 
   if (!focusOpportunity) {
     throw new Error("Focused opportunity is missing.");
@@ -703,33 +754,18 @@ export async function getReviewState(): Promise<ReviewState> {
         : undefined;
   }
 
-  function isDescendantNode(node: typeof ostNodes.$inferSelect, ancestorId: string) {
-    let current = node;
-
-    while (current.parentId) {
-      if (current.parentId === ancestorId) {
-        return true;
-      }
-
-      const parent = nodeMap.get(current.parentId);
-      if (!parent) {
-        return false;
-      }
-
-      current = parent;
-    }
-
-    return false;
-  }
+  const isInFocusedOpportunity = (node: typeof ostNodes.$inferSelect) =>
+    focusOpportunities.some((opportunity) =>
+      isNodeOrDescendantOf(node, opportunity.id, nodeMap),
+    );
 
   const descendantSolutionNodes = nodes
     .filter(
       (node) =>
-        node.nodeType === "solution" && isDescendantNode(node, focusOpportunity.id),
+        node.nodeType === "solution" && isInFocusedOpportunity(node),
     )
     .sort(compareByPriority);
   const focusedSolutionNodes = terminalFocusedSolutions(nodes, nodeMap)
-    .filter((node) => isDescendantNode(node, focusOpportunity.id))
     .sort(compareByPriority)
     .slice(0, MAX_FOCUSED_SOLUTIONS);
   const solutionNodes =
@@ -917,6 +953,11 @@ export async function getReviewState(): Promise<ReviewState> {
       title: focusOpportunity.title,
       description: focusOpportunity.description ?? "",
     },
+    focusOpportunities: focusOpportunities.map((opportunity) => ({
+      id: opportunity.id,
+      title: opportunity.title,
+      description: opportunity.description ?? "",
+    })),
     path,
     tree: reviewTree,
     solutions: reviewSolutions,
@@ -1023,7 +1064,7 @@ export async function createSolutionRecord(input: {
     .from(ostNodes)
     .where(eq(ostNodes.outcomeId, OUTCOME_ID));
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
-  const focusOpportunity = deepestFocusedOpportunity(nodes, nodeMap);
+  const focusOpportunity = primaryFocusedOpportunity(nodes, nodeMap);
 
   const parentId = input.parentId?.trim() || focusOpportunity?.id || FOCUS_OPPORTUNITY_ID;
 
