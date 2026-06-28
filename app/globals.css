@@ -1227,9 +1227,80 @@ button:disabled {
   font-weight: 700;
 }
 
+.filter-tree-list,
 .filter-option-list {
   display: grid;
   gap: 7px;
+}
+
+.filter-tree-branch {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.filter-tree-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 6px;
+  align-items: stretch;
+}
+
+.filter-disclosure-button {
+  width: 28px;
+  min-height: 48px;
+  border: 1px solid #e4eaf3;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fcfdfe;
+  color: var(--navy);
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.filter-disclosure-button:hover:not(:disabled) {
+  border-color: #cfd8eb;
+  background: #ffffff;
+}
+
+.filter-disclosure-button svg {
+  transition: transform 160ms ease;
+}
+
+.filter-disclosure-button[aria-expanded="false"] svg {
+  transform: rotate(-90deg);
+}
+
+.filter-disclosure-button:disabled {
+  color: #c4ccda;
+  cursor: default;
+}
+
+.filter-opportunity-option,
+.filter-solution-option {
+  width: 100%;
+}
+
+.filter-solution-branch {
+  position: relative;
+  display: grid;
+  gap: 7px;
+  padding-left: 34px;
+}
+
+.filter-solution-branch::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 4px;
+  left: 14px;
+  width: 1px;
+  background: #dfe5f0;
 }
 
 .filter-option {
@@ -1492,6 +1563,7 @@ button:disabled {
 }
 
 .queue-table {
+  --queue-solution-column-width: 224px;
   margin: 16px 26px 0;
   background: var(--surface);
   border: 1px solid #e9edf4;
@@ -1533,7 +1605,7 @@ button:disabled {
 }
 
 .queue-table-head span:first-child {
-  flex: 0 0 150px;
+  flex: 0 0 calc(var(--queue-solution-column-width) - 18px);
 }
 
 .queue-table-head span:nth-child(2) {
@@ -1548,7 +1620,7 @@ button:disabled {
 
 .queue-group {
   display: grid;
-  grid-template-columns: 168px minmax(0, 1fr);
+  grid-template-columns: var(--queue-solution-column-width) minmax(0, 1fr);
 }
 
 .queue-group + .queue-group {

@@ -1104,6 +1104,8 @@ export default function ReviewClient({
   const [expandedTreeAssumptionIds, setExpandedTreeAssumptionIds] = useState<
     string[]
   >([]);
+  const [expandedFilterOpportunityIds, setExpandedFilterOpportunityIds] =
+    useState<string[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [inlineAdd, setInlineAdd] = useState<InlineAddTarget | null>(null);
   const [treeEdit, setTreeEdit] = useState<TreeEditTarget | null>(null);
@@ -1428,6 +1430,16 @@ export default function ReviewClient({
 
     return counts;
   }, [review.solutions, review.tests]);
+  const filterOpportunityBranches = useMemo(
+    () =>
+      review.focusOpportunities.map((opportunity) => ({
+        opportunity,
+        solutions: review.solutions.filter(
+          (solution) => solution.opportunityId === opportunity.id,
+        ),
+      })),
+    [review.focusOpportunities, review.solutions],
+  );
 
   const topbarAvatars = useMemo(() => {
     const owners = review.teamMembers
@@ -1743,6 +1755,14 @@ export default function ReviewClient({
     } finally {
       setBusy(false);
     }
+  }
+
+  function toggleFilterOpportunityExpanded(opportunityId: string) {
+    setExpandedFilterOpportunityIds((current) =>
+      current.includes(opportunityId)
+        ? current.filter((id) => id !== opportunityId)
+        : [...current, opportunityId],
+    );
   }
 
   function toggleExpandedOpportunity(nodeId: string) {
@@ -3852,74 +3872,91 @@ export default function ReviewClient({
             ) : null}
           </div>
 
-          <div className="filter-option-list">
-            {review.focusOpportunities.map((opportunity) => {
+          <div className="filter-tree-list">
+            {filterOpportunityBranches.map(({ opportunity, solutions }) => {
               const counts = testsByOpportunityId.get(opportunity.id) ?? {
                 total: 0,
                 open: 0,
               };
               const checked = activeOpportunityFilterIds.includes(opportunity.id);
+              const expanded = expandedFilterOpportunityIds.includes(opportunity.id);
 
               return (
-                <label className="filter-option" key={opportunity.id}>
-                  <input
-                    checked={checked}
-                    onChange={() => toggleOpportunityFilter(opportunity.id)}
-                    type="checkbox"
-                  />
-                  <span className="filter-option-copy">
-                    <strong>{opportunity.title}</strong>
-                    <small>
-                      {counts.total} test{counts.total === 1 ? "" : "s"} ·{" "}
-                      {counts.open} open
-                    </small>
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-
-          <div className="rail-divider" />
-
-          <div className="filter-toolbar">
-            <span className="eyebrow">Focused solutions</span>
-          </div>
-
-          <div className="filter-option-list">
-            {review.solutions.map((solution) => {
-              const counts = testsBySolutionId.get(solution.id) ?? {
-                total: 0,
-                open: 0,
-              };
-              const checked = activeSolutionFilterIds.includes(solution.id);
-
-              return (
-                <label
-                  className={`filter-option ${solution.status === "completed" ? "completed" : ""}`}
-                  key={solution.id}
-                >
-                  <input
-                    checked={checked}
-                    onChange={() => toggleSolutionFilter(solution.id)}
-                    type="checkbox"
-                  />
-                  <span className="filter-option-copy">
-                    <span className="filter-solution-title">
-                      <span className="solution-rank">{solution.rank}</span>
-                      <strong>{solution.name}</strong>
-                    </span>
-                    <small>
-                      {solution.opportunityTitle} · {counts.total} test
-                      {counts.total === 1 ? "" : "s"} · {counts.open} open
-                    </small>
-                    {solution.status === "completed" ? (
-                      <span className="completed-pill compact">
-                        <CheckCircle2 aria-hidden="true" size={11} />
-                        Completed
+                <div className="filter-tree-branch" key={opportunity.id}>
+                  <div className="filter-tree-row">
+                    <button
+                      aria-expanded={expanded}
+                      aria-label={`${expanded ? "Collapse" : "Expand"} solutions for ${opportunity.title}`}
+                      className="filter-disclosure-button"
+                      disabled={solutions.length === 0}
+                      onClick={() => toggleFilterOpportunityExpanded(opportunity.id)}
+                      type="button"
+                    >
+                      <ChevronDown aria-hidden="true" size={15} />
+                    </button>
+                    <label className="filter-option filter-opportunity-option">
+                      <input
+                        checked={checked}
+                        onChange={() => toggleOpportunityFilter(opportunity.id)}
+                        type="checkbox"
+                      />
+                      <span className="filter-option-copy">
+                        <strong>{opportunity.title}</strong>
+                        <small>
+                          {solutions.length} solution
+                          {solutions.length === 1 ? "" : "s"} · {counts.total} test
+                          {counts.total === 1 ? "" : "s"} · {counts.open} open
+                        </small>
                       </span>
-                    ) : null}
-                  </span>
-                </label>
+                    </label>
+                  </div>
+
+                  {expanded ? (
+                    <div className="filter-solution-branch">
+                      {solutions.map((solution) => {
+                        const solutionCounts = testsBySolutionId.get(solution.id) ?? {
+                          total: 0,
+                          open: 0,
+                        };
+                        const solutionChecked = activeSolutionFilterIds.includes(
+                          solution.id,
+                        );
+
+                        return (
+                          <label
+                            className={`filter-option filter-solution-option ${
+                              solution.status === "completed" ? "completed" : ""
+                            }`}
+                            key={solution.id}
+                          >
+                            <input
+                              checked={solutionChecked}
+                              onChange={() => toggleSolutionFilter(solution.id)}
+                              type="checkbox"
+                            />
+                            <span className="filter-option-copy">
+                              <span className="filter-solution-title">
+                                <span className="solution-rank">{solution.rank}</span>
+                                <strong>{solution.name}</strong>
+                              </span>
+                              <small>
+                                {solutionCounts.total} test
+                                {solutionCounts.total === 1 ? "" : "s"} ·{" "}
+                                {solutionCounts.open} open
+                              </small>
+                              {solution.status === "completed" ? (
+                                <span className="completed-pill compact">
+                                  <CheckCircle2 aria-hidden="true" size={11} />
+                                  Completed
+                                </span>
+                              ) : null}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
               );
             })}
           </div>
@@ -4005,7 +4042,6 @@ export default function ReviewClient({
                       <span className="solution-rank">{solution.rank}</span>
                       <span className="queue-solution-copy">
                         <strong>{solution.name}</strong>
-                        <small>{solution.opportunityTitle}</small>
                         {isCompleted ? (
                           <span className="completed-pill compact">
                             <CheckCircle2 aria-hidden="true" size={11} />

@@ -38,7 +38,8 @@ The left rail filters the assumption test queue across focused work.
 
 - Shows how many focused solutions and assumptions are currently visible.
 - Filters by focused opportunities with checkbox controls.
-- Filters by focused solutions with checkbox controls.
+- Focused solutions appear under their opportunity branch in the same filter tree.
+- Opportunity branches default collapsed and can be expanded for solution-level filters.
 - Shows test and open-test counts for each filter option.
 - `Tree` opens the full tree drawer, where focus can be changed.
 - Filter controls only narrow the queue; they do not set or unset focus.
@@ -53,7 +54,7 @@ The main screen shows the active assumption test queue for all focused solutions
 - Assumptions and their tests appear in the main column.
 - The main queue is always expanded. Expand/collapse behavior is only used in the full tree drawer.
 - Queue filters can be reset from the queue header or the left rail.
-- Solution labels in the queue show the related opportunity for context.
+- Solution labels in the queue show only the solution name, rank, and completion state.
 - Users can add tests from:
   - The queue header.
   - A specific assumption row.
