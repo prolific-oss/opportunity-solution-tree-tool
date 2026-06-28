@@ -115,9 +115,8 @@ const OUTCOME_ID = "outcome-help-ai-teams-launch-with-confidence";
 const ROOT_OPPORTUNITY_ID = "opp-relevant-engaged-high-quality";
 const FOCUS_OPPORTUNITY_ID = "opp-see-existing-pool-engagement";
 const SEED_SOLUTION_ID = "solution-activity-insights-pgs-ui";
-// Focus is stored as lineage membership: terminal opportunities and up to three
-// terminal solutions, with each focused node's ancestors also marked.
-const MAX_FOCUSED_SOLUTIONS = 3;
+// Focus is stored as lineage membership: terminal opportunities and terminal
+// solutions, with each focused node's ancestors also marked.
 
 let assumptionTypesBackfilled = false;
 
@@ -441,10 +440,7 @@ async function normalizeFocusState(outcomeId: string) {
     .where(eq(ostNodes.outcomeId, outcomeId));
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const focusedOpportunities = focusedOpportunitiesOrFallback(nodes, nodeMap);
-  const focusedSolutions = terminalFocusedSolutions(nodes, nodeMap).slice(
-    0,
-    MAX_FOCUSED_SOLUTIONS,
-  );
+  const focusedSolutions = terminalFocusedSolutions(nodes, nodeMap);
 
   await persistFocusInvariant(outcomeId, focusedOpportunities, focusedSolutions);
 }
@@ -460,10 +456,7 @@ async function setOpportunityFocus(node: OstNode) {
     (opportunity) =>
       opportunity.id !== node.id && !isDescendantOf(opportunity, node.id, nodeMap),
   );
-  const focusedSolutions = terminalFocusedSolutions(nodes, nodeMap).slice(
-    0,
-    MAX_FOCUSED_SOLUTIONS,
-  );
+  const focusedSolutions = terminalFocusedSolutions(nodes, nodeMap);
 
   focusedOpportunities.push(node);
 
@@ -490,10 +483,6 @@ async function setSolutionFocus(node: OstNode, shouldFocus: boolean) {
   );
 
   if (shouldFocus) {
-    if (focusedSolutions.length >= MAX_FOCUSED_SOLUTIONS) {
-      throw new Error("Only three solutions can be in focus at once.");
-    }
-
     focusedSolutions.push(node);
   }
 
@@ -766,12 +755,11 @@ export async function getReviewState(): Promise<ReviewState> {
     )
     .sort(compareByPriority);
   const focusedSolutionNodes = terminalFocusedSolutions(nodes, nodeMap)
-    .sort(compareByPriority)
-    .slice(0, MAX_FOCUSED_SOLUTIONS);
+    .sort(compareByPriority);
   const solutionNodes =
     focusedSolutionNodes.length > 0
       ? focusedSolutionNodes
-      : descendantSolutionNodes.slice(0, MAX_FOCUSED_SOLUTIONS);
+      : descendantSolutionNodes;
 
   const pathNodeIds = new Set(path.map((node) => node.id));
   const treeRankMap = new Map<string, number>();

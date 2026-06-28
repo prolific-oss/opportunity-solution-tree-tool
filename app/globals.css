@@ -2710,15 +2710,24 @@ select:focus {
 .tree-icon-button {
   position: relative;
   width: 32px;
+  min-width: 32px;
   height: 32px;
+  min-height: 32px;
   flex: 0 0 32px;
+  padding: 0;
   border: 1px solid #dce4f0;
+  box-sizing: border-box;
   border-radius: 9px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0;
   background: #ffffff;
   color: #53617d;
+  font-size: 0;
+  line-height: 1;
+  overflow: visible;
+  white-space: nowrap;
   transition:
     border-color 150ms ease,
     background 150ms ease,
@@ -2762,7 +2771,8 @@ select:focus {
   opacity: 0.62;
 }
 
-.icon-tooltip {
+.tree-icon-button[data-tooltip]::after {
+  content: attr(data-tooltip);
   position: absolute;
   left: 50%;
   bottom: calc(100% + 8px);
@@ -2783,8 +2793,8 @@ select:focus {
   z-index: 12;
 }
 
-.tree-icon-button:hover .icon-tooltip,
-.tree-icon-button:focus-visible .icon-tooltip {
+.tree-icon-button[data-tooltip]:hover::after,
+.tree-icon-button[data-tooltip]:focus-visible::after {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }

@@ -40,7 +40,7 @@ The left rail shows the currently focused opportunity.
 - Uses the opportunity icon and tint so the focused item type is clear.
 - Shows the active path depth.
 - `Change` opens the full tree drawer.
-- Shows the top three solutions in play for the focused opportunity.
+- Shows the solutions in play for the focused opportunity.
 - Solution cards can be clicked to filter the queue to that solution.
 - Focused solution cards are visually highlighted.
 - Completed solutions are marked and visually softened.
@@ -142,9 +142,10 @@ Expand/collapse controls are intentionally scoped to the tree drawer.
 
 - Any number of terminal opportunities can be in focus at the same time.
 - Each focused opportunity's lineage is also in focus, so parent opportunities and the outcome remain visibly active.
-- Solution focus has a global cap of three focused solutions.
+- Any number of terminal solutions can be in focus at the same time.
 - Focused solutions also focus their lineage, including parent solutions, parent opportunities, and the outcome.
 - Focused rows have a clear focus pill and stronger focus styling.
+- Focus actions use a pin icon so they are distinct from the outcome target icon.
 - Rows on a focus path stay readable but quieter than the terminal focused row.
 - Non-focused opportunity and solution alternatives are dimmed.
 - Muted alternatives brighten on hover/focus so they remain usable.
@@ -178,7 +179,7 @@ The `Add` menu adapts to the selected tree node.
 - Assumption type can be edited inline.
 - Solution completion can be toggled between active and completed from the solution row overflow menu.
 - Opportunities can be added to the current focus set.
-- Up to three solutions can be set as focused solutions.
+- Any number of solutions can be set as focused solutions.
 
 ### Delete Actions
 

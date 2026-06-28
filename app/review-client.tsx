@@ -11,6 +11,7 @@ import {
   Lightbulb,
   MoreHorizontal,
   Network,
+  Pin,
   Plus,
   Search,
   Settings2,
@@ -530,7 +531,6 @@ function nextSiblingOpportunityLabel(label?: string) {
 function normalizeReviewState(review: ReviewState): ReviewState {
   const solutions = [...review.solutions]
     .sort(compareRankable)
-    .slice(0, 3)
     .map((solution, index) => ({
       ...solution,
       rank: index + 1,
@@ -2364,7 +2364,7 @@ export default function ReviewClient({
               }}
               type="button"
             >
-              <Target aria-hidden="true" size={13} />
+              <Pin aria-hidden="true" size={13} />
               <span>Set focus</span>
             </button>
           ) : null}
@@ -2377,6 +2377,7 @@ export default function ReviewClient({
               className={`tree-icon-button tree-focus-icon-button ${
                 node.isFocus ? "active" : ""
               }`}
+              data-tooltip={node.isFocus ? "Unset focus" : "Set focus"}
               disabled={busy}
               onClick={(event) => {
                 event.stopPropagation();
@@ -2385,10 +2386,7 @@ export default function ReviewClient({
               title={node.isFocus ? "Unset focus" : "Set focus"}
               type="button"
             >
-              <Target aria-hidden="true" size={13} />
-              <span className="icon-tooltip">
-                {node.isFocus ? "Unset focus" : "Set focus"}
-              </span>
+              <Pin aria-hidden="true" size={13} />
             </button>
           ) : null}
           {addActions.length > 0 ? (
@@ -2403,6 +2401,7 @@ export default function ReviewClient({
                     ? "tree-icon-button add-dropdown-button"
                     : "tree-action-button add-dropdown-button"
                 }
+                data-tooltip={node.type === "solution" ? "Add" : undefined}
                 onClick={() => {
                   setDeleteConfirm(null);
                   setAddMenuKey((current) =>
@@ -2413,14 +2412,12 @@ export default function ReviewClient({
                 type="button"
               >
                 <Plus aria-hidden="true" size={14} />
-                {node.type === "solution" ? (
-                  <span className="icon-tooltip">Add</span>
-                ) : (
+                {node.type !== "solution" ? (
                   <>
                     <span>Add</span>
                     <ChevronDown aria-hidden="true" size={13} />
                   </>
-                )}
+                ) : null}
               </button>
 
               {addMenuKey === addKey ? (
@@ -2480,6 +2477,7 @@ export default function ReviewClient({
                 aria-expanded={addMenuKey === moreKey}
                 aria-label="More solution actions"
                 className="tree-icon-button tree-more-button"
+                data-tooltip="More actions"
                 onClick={() => {
                   setDeleteConfirm(null);
                   setAddMenuKey((current) =>
@@ -2490,7 +2488,6 @@ export default function ReviewClient({
                 type="button"
               >
                 <MoreHorizontal aria-hidden="true" size={16} />
-                <span className="icon-tooltip">More actions</span>
               </button>
               {addMenuKey === moreKey ? (
                 <div className="tree-more-menu" role="menu">
@@ -3453,7 +3450,7 @@ export default function ReviewClient({
           <div className="rail-divider" />
 
           <div className="rail-section-head">
-            <span className="eyebrow">Top 3 solutions in play</span>
+            <span className="eyebrow">Solutions in play</span>
             <span className="rail-tip">tap to focus</span>
           </div>
 
