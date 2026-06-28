@@ -34,27 +34,26 @@ The outcome progress area summarizes the current outcome and key result confiden
 
 ## Focus Rail
 
-The left rail shows the currently focused opportunity.
+The left rail filters the assumption test queue across focused work.
 
-- Displays the focused opportunity title.
-- Uses the opportunity icon and tint so the focused item type is clear.
-- Shows the active path depth.
-- `Change` opens the full tree drawer.
-- Shows the solutions in play for the focused opportunity.
-- Solution cards can be clicked to filter the queue to that solution.
-- Focused solution cards are visually highlighted.
-- Completed solutions are marked and visually softened.
+- Shows how many focused solutions and assumptions are currently visible.
+- Filters by focused opportunities with checkbox controls.
+- Filters by focused solutions with checkbox controls.
+- Shows test and open-test counts for each filter option.
+- `Tree` opens the full tree drawer, where focus can be changed.
+- Filter controls only narrow the queue; they do not set or unset focus.
+- Reset clears local filters and shows all focused solutions again.
 
 ## Assumption Test Queue
 
-The main screen shows the active assumption test queue for the focused opportunity.
+The main screen shows the active assumption test queue for all focused solutions, regardless of opportunity.
 
 - Queue rows are ordered by solution priority, then assumption and test priority.
 - Solutions appear in the left column.
 - Assumptions and their tests appear in the main column.
 - The main queue is always expanded. Expand/collapse behavior is only used in the full tree drawer.
-- Clicking a solution in the queue focuses or clears that solution filter.
-- The solution filter pill can clear the active solution filter.
+- Queue filters can be reset from the queue header or the left rail.
+- Solution labels in the queue show the related opportunity for context.
 - Users can add tests from:
   - The queue header.
   - A specific assumption row.

@@ -1196,6 +1196,111 @@ button:disabled {
   color: #b3bed2;
 }
 
+.filter-rail .focus-heading-row h1 {
+  max-width: 260px;
+}
+
+.filter-toolbar {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.filter-reset-button {
+  padding: 4px 8px;
+  border-radius: 7px;
+  background: var(--navy-soft);
+  color: var(--navy);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.filter-option-list {
+  display: grid;
+  gap: 7px;
+}
+
+.filter-option {
+  min-width: 0;
+  min-height: 48px;
+  padding: 10px 11px;
+  border: 1px solid #e4eaf3;
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  background: #fcfdfe;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.filter-option:hover {
+  border-color: #cfd8eb;
+  background: #ffffff;
+}
+
+.filter-option:has(input:checked) {
+  border-color: #cfd8ff;
+  background: #f8faff;
+  box-shadow: inset 3px 0 0 rgba(15, 43, 201, 0.42);
+}
+
+.filter-option.completed {
+  background: #fbfefc;
+  border-color: #d9ecdf;
+}
+
+.filter-option input {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--navy);
+}
+
+.filter-option-copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.filter-option-copy strong {
+  min-width: 0;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.28;
+  font-weight: 700;
+}
+
+.filter-option-copy small,
+.queue-solution-copy small {
+  color: #7b88a6;
+  font-size: 11.5px;
+  line-height: 1.35;
+  font-weight: 650;
+}
+
+.filter-solution-title {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.filter-helper {
+  margin: 14px 0 0;
+  color: #8794b0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .solution-stack {
   display: grid;
   gap: 10px;
@@ -1383,6 +1488,25 @@ button:disabled {
   border: 1px solid #e9edf4;
   border-radius: 16px;
   overflow: hidden;
+}
+
+.queue-empty-state {
+  padding: 28px;
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
+.queue-empty-state strong {
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.queue-empty-state p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .queue-table-head {

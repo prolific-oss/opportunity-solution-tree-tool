@@ -40,6 +40,8 @@ export type ReviewSolution = {
   id: string;
   parentId: string | null;
   outcomeId: string;
+  opportunityId: string;
+  opportunityTitle: string;
   rank: number;
   name: string;
   description: string;
@@ -809,18 +811,24 @@ export async function getReviewState(): Promise<ReviewState> {
       isFocus: node.isFocus,
     }));
 
-  const reviewSolutions: ReviewSolution[] = solutionNodes.map((solution, index) => ({
-    id: solution.id,
-    parentId: solution.parentId,
-    outcomeId: solution.outcomeId,
-    rank: index + 1,
-    name: solution.title,
-    description: solution.description ?? "",
-    shortName: shortNameFromTitle(solution.title),
-    status: solutionStatusFromNode(solution.status),
-    reviewPriority: solution.reviewPriority,
-    isFocus: solution.isFocus,
-  }));
+  const reviewSolutions: ReviewSolution[] = solutionNodes.map((solution, index) => {
+    const opportunity = nearestOpportunityAncestor(solution, nodeMap);
+
+    return {
+      id: solution.id,
+      parentId: solution.parentId,
+      outcomeId: solution.outcomeId,
+      opportunityId: opportunity?.id ?? "",
+      opportunityTitle: opportunity?.title ?? "Opportunity",
+      rank: index + 1,
+      name: solution.title,
+      description: solution.description ?? "",
+      shortName: shortNameFromTitle(solution.title),
+      status: solutionStatusFromNode(solution.status),
+      reviewPriority: solution.reviewPriority,
+      isFocus: solution.isFocus,
+    };
+  });
 
   const solutionIds = reviewSolutions.map((solution) => solution.id);
   const solutionNameMap = new Map(
@@ -1105,10 +1113,17 @@ export async function createSolutionRecord(input: {
     isFocus: false,
   });
 
+  const opportunity =
+    parent.nodeType === "opportunity"
+      ? parent
+      : nearestOpportunityAncestor(parent, nodeMap);
+
   return {
     id,
     parentId,
     outcomeId: parent.outcomeId,
+    opportunityId: opportunity?.id ?? "",
+    opportunityTitle: opportunity?.title ?? "Opportunity",
     rank: nextOrder,
     name: title,
     description,

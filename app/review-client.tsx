@@ -9,6 +9,7 @@ import {
   FlaskConical,
   GripVertical,
   Lightbulb,
+  ListFilter,
   MoreHorizontal,
   Network,
   Pin,
@@ -799,6 +800,24 @@ function nextTreeRank(
   );
 }
 
+function nearestOpportunityForParent(review: ReviewState, parentId: string | null) {
+  let current =
+    parentId != null ? review.tree.find((node) => node.id === parentId) : undefined;
+
+  while (current) {
+    if (current.type === "opportunity") {
+      return current;
+    }
+
+    current =
+      current.parentId != null
+        ? review.tree.find((node) => node.id === current?.parentId)
+        : undefined;
+  }
+
+  return review.focusOpportunity;
+}
+
 function makeOptimisticOpportunity(
   review: ReviewState,
   draft: AddDraft,
@@ -825,12 +844,15 @@ function makeOptimisticSolution(
   const title = draft.title.trim();
   const parentId = draft.parentId || review.focusOpportunity.id;
   const parentNode = review.tree.find((node) => node.id === parentId);
+  const opportunity = nearestOpportunityForParent(review, parentId);
   const reviewPriority = nextTreeRank(review, parentId, "solution");
 
   return {
     id: `optimistic-solution-${crypto.randomUUID()}`,
     parentId,
     outcomeId: parentNode?.outcomeId ?? review.outcome.id,
+    opportunityId: opportunity.id,
+    opportunityTitle: opportunity.title,
     rank: review.solutions.length + 1,
     name: title,
     description: draft.description.trim(),
@@ -988,7 +1010,12 @@ export default function ReviewClient({
   initialReview: ReviewState;
 }) {
   const [review, setReview] = useState(initialReview);
-  const [selectedSolutionId, setSelectedSolutionId] = useState<string | null>(null);
+  const [selectedOpportunityFilterIds, setSelectedOpportunityFilterIds] = useState<
+    string[] | null
+  >(null);
+  const [selectedSolutionFilterIds, setSelectedSolutionFilterIds] = useState<
+    string[] | null
+  >(null);
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   const [treeOpen, setTreeOpen] = useState(false);
   const [expandedTreeOpportunityIds, setExpandedTreeOpportunityIds] = useState<
@@ -1052,11 +1079,32 @@ export default function ReviewClient({
     return () => window.clearTimeout(timeout);
   }, [confirmationMessage]);
 
+  const focusedOpportunityFilterIds = useMemo(
+    () => review.focusOpportunities.map((opportunity) => opportunity.id),
+    [review.focusOpportunities],
+  );
+  const focusedSolutionFilterIds = useMemo(
+    () => review.solutions.map((solution) => solution.id),
+    [review.solutions],
+  );
+  const activeOpportunityFilterIds = useMemo(
+    () =>
+      (selectedOpportunityFilterIds ?? focusedOpportunityFilterIds).filter((id) =>
+        focusedOpportunityFilterIds.includes(id),
+      ),
+    [focusedOpportunityFilterIds, selectedOpportunityFilterIds],
+  );
+  const activeSolutionFilterIds = useMemo(
+    () =>
+      (selectedSolutionFilterIds ?? focusedSolutionFilterIds).filter((id) =>
+        focusedSolutionFilterIds.includes(id),
+      ),
+    [focusedSolutionFilterIds, selectedSolutionFilterIds],
+  );
   const activeSelectedSolutionId =
-    selectedSolutionId &&
-    review.solutions.some((solution) => solution.id === selectedSolutionId)
-      ? selectedSolutionId
-      : null;
+    activeSolutionFilterIds.length === 1 ? activeSolutionFilterIds[0] : null;
+  const filtersActive =
+    selectedOpportunityFilterIds !== null || selectedSolutionFilterIds !== null;
 
   const selectedTest =
     selectedTestId && review.tests.some((test) => test.id === selectedTestId)
@@ -1081,21 +1129,23 @@ export default function ReviewClient({
 
   const queueSolutions = useMemo(
     () =>
-      activeSelectedSolutionId
-        ? review.solutions.filter(
-            (solution) => solution.id === activeSelectedSolutionId,
-          )
-        : review.solutions,
-    [activeSelectedSolutionId, review.solutions],
+      review.solutions.filter(
+        (solution) =>
+          activeSolutionFilterIds.includes(solution.id) &&
+          activeOpportunityFilterIds.includes(solution.opportunityId),
+      ),
+    [activeOpportunityFilterIds, activeSolutionFilterIds, review.solutions],
+  );
+
+  const queueSolutionIds = useMemo(
+    () => new Set(queueSolutions.map((solution) => solution.id)),
+    [queueSolutions],
   );
 
   const visibleTests = useMemo(
     () =>
-      review.tests.filter(
-        (test) =>
-          !activeSelectedSolutionId || test.solutionId === activeSelectedSolutionId,
-      ),
-    [activeSelectedSolutionId, review.tests],
+      review.tests.filter((test) => queueSolutionIds.has(test.solutionId)),
+    [queueSolutionIds, review.tests],
   );
 
   const queueGroups = useMemo(
@@ -1111,7 +1161,6 @@ export default function ReviewClient({
                 (test) => test.assumptionNodeId === assumption.id,
               ),
             }))
-            .filter((assumption) => assumption.tests.length > 0),
         }))
         .filter((group) => group.assumptions.length > 0),
     [queueSolutions, review.assumptions, review.tests],
@@ -1200,6 +1249,46 @@ export default function ReviewClient({
     visibleTests.length === review.tests.length
       ? `${review.tests.length} tests`
       : `${visibleTests.length} of ${review.tests.length}`;
+  const visibleAssumptionCount = queueGroups.reduce(
+    (total, group) => total + group.assumptions.length,
+    0,
+  );
+  const testsBySolutionId = useMemo(() => {
+    const counts = new Map<string, { total: number; open: number }>();
+
+    review.tests.forEach((test) => {
+      const current = counts.get(test.solutionId) ?? { total: 0, open: 0 };
+      current.total += 1;
+      if (test.status !== "done") {
+        current.open += 1;
+      }
+      counts.set(test.solutionId, current);
+    });
+
+    return counts;
+  }, [review.tests]);
+  const testsByOpportunityId = useMemo(() => {
+    const solutionOpportunityMap = new Map(
+      review.solutions.map((solution) => [solution.id, solution.opportunityId]),
+    );
+    const counts = new Map<string, { total: number; open: number }>();
+
+    review.tests.forEach((test) => {
+      const opportunityId = solutionOpportunityMap.get(test.solutionId);
+      if (!opportunityId) {
+        return;
+      }
+
+      const current = counts.get(opportunityId) ?? { total: 0, open: 0 };
+      current.total += 1;
+      if (test.status !== "done") {
+        current.open += 1;
+      }
+      counts.set(opportunityId, current);
+    });
+
+    return counts;
+  }, [review.solutions, review.tests]);
 
   const topbarAvatars = useMemo(() => {
     const owners = review.teamMembers
@@ -1221,24 +1310,28 @@ export default function ReviewClient({
 
   async function refreshReview(options?: {
     preserveTestId?: string | null;
-    preserveSolutionId?: string | null;
+    preserveSolutionIds?: string[] | null;
   }) {
     const response = await fetch("/api/review", { cache: "no-store" });
     const payload = await parseJson<{ review: ReviewState }>(response);
     const nextReview = payload.review;
     setReview(nextReview);
 
-    const nextSolutionId =
-      options?.preserveSolutionId !== undefined
-        ? options.preserveSolutionId
-        : activeSelectedSolutionId &&
-            nextReview.solutions.some(
-              (solution) => solution.id === activeSelectedSolutionId,
-            )
-          ? activeSelectedSolutionId
-          : null;
+    if (options?.preserveSolutionIds !== undefined) {
+      setSelectedSolutionFilterIds(options.preserveSolutionIds);
+    } else {
+      const nextSolutionIds = new Set(nextReview.solutions.map((solution) => solution.id));
+      const preservedSolutionIds =
+        selectedSolutionFilterIds?.filter((id) => nextSolutionIds.has(id)) ?? null;
+      setSelectedSolutionFilterIds(preservedSolutionIds);
+    }
 
-    setSelectedSolutionId(nextSolutionId);
+    const nextOpportunityIds = new Set(
+      nextReview.focusOpportunities.map((opportunity) => opportunity.id),
+    );
+    setSelectedOpportunityFilterIds(
+      selectedOpportunityFilterIds?.filter((id) => nextOpportunityIds.has(id)) ?? null,
+    );
 
     const requestedTestId =
       options?.preserveTestId !== undefined ? options.preserveTestId : selectedTestId;
@@ -1260,7 +1353,7 @@ export default function ReviewClient({
       );
 
       await refreshReview({
-        preserveSolutionId: null,
+        preserveSolutionIds: null,
         preserveTestId: null,
       });
       setExpandedTreeOpportunityIds((current) =>
@@ -1286,7 +1379,7 @@ export default function ReviewClient({
       );
 
       await refreshReview({
-        preserveSolutionId: isFocus ? nodeId : null,
+        preserveSolutionIds: isFocus ? [nodeId] : null,
         preserveTestId: null,
       });
       setExpandedTreeSolutionIds((current) =>
@@ -1385,6 +1478,24 @@ export default function ReviewClient({
     setConfirmationMessage(title ? `${suffix}: ${title}` : suffix);
   }
 
+  function toggleFilterValue(
+    currentIds: string[] | null,
+    id: string,
+    allIds: string[],
+  ) {
+    const current = currentIds ?? allIds;
+    const next = current.includes(id)
+      ? current.filter((currentId) => currentId !== id)
+      : [...current, id];
+
+    return next.length === allIds.length ? null : next;
+  }
+
+  function resetQueueFilters() {
+    setSelectedOpportunityFilterIds(null);
+    setSelectedSolutionFilterIds(null);
+  }
+
   function openTreeEdit(node: ReviewTreeNode, depth = 0) {
     setInlineAdd(null);
     setAddMenuKey(null);
@@ -1399,12 +1510,18 @@ export default function ReviewClient({
     setTreeEditMessage("");
   }
 
-  function focusSolution(solutionId: string) {
-    setSelectedSolutionId((current) => {
-      const next = current === solutionId ? null : solutionId;
-      selectTest(null);
-      return next;
-    });
+  function toggleSolutionFilter(solutionId: string) {
+    selectTest(null);
+    setSelectedSolutionFilterIds((current) =>
+      toggleFilterValue(current, solutionId, focusedSolutionFilterIds),
+    );
+  }
+
+  function toggleOpportunityFilter(opportunityId: string) {
+    selectTest(null);
+    setSelectedOpportunityFilterIds((current) =>
+      toggleFilterValue(current, opportunityId, focusedOpportunityFilterIds),
+    );
   }
 
   function toggleExpandedOpportunity(nodeId: string) {
@@ -1623,7 +1740,7 @@ export default function ReviewClient({
 
       await parseJson<{ ok: true }>(response);
       await refreshReview({
-        preserveSolutionId: activeSelectedSolutionId,
+        preserveSolutionIds: selectedSolutionFilterIds,
         preserveTestId: selectedTestId,
       });
 
@@ -1673,7 +1790,7 @@ export default function ReviewClient({
 
       await parseJson<{ ok: true }>(response);
       await refreshReview({
-        preserveSolutionId: activeSelectedSolutionId,
+        preserveSolutionIds: selectedSolutionFilterIds,
         preserveTestId: selectedTestId,
       });
     } catch (error) {
@@ -2703,7 +2820,7 @@ export default function ReviewClient({
 
       await parseJson<{ ok: true }>(response);
       await refreshReview({
-        preserveSolutionId: activeSelectedSolutionId,
+        preserveSolutionIds: selectedSolutionFilterIds,
         preserveTestId: selectedTestId,
       });
       setTeamDraft({ name: "", role: "" });
@@ -2730,7 +2847,7 @@ export default function ReviewClient({
 
       await parseJson<{ ok: true }>(response);
       await refreshReview({
-        preserveSolutionId: activeSelectedSolutionId,
+        preserveSolutionIds: selectedSolutionFilterIds,
         preserveTestId: selectedTestId,
       });
     } catch (error) {
@@ -2751,13 +2868,13 @@ export default function ReviewClient({
     setAddMessage("");
 
     const previousReview = review;
-    const previousSelectedSolutionId = selectedSolutionId;
+    const previousSelectedSolutionFilterIds = selectedSolutionFilterIds;
     const previousSelectedTestId = selectedTestId;
     const previousDetailDraft = detailDraft;
     let shouldReopenOnError = false;
 
     const restorePreviousSelection = () => {
-      setSelectedSolutionId(previousSelectedSolutionId);
+      setSelectedSolutionFilterIds(previousSelectedSolutionFilterIds);
 
       if (previousSelectedTestId) {
         syncSelectedTest(previousReview, previousSelectedTestId);
@@ -2823,7 +2940,9 @@ export default function ReviewClient({
           : activeSelectedSolutionId;
 
         setReview(nextReview);
-        setSelectedSolutionId(nextSelectedSolutionId);
+        setSelectedSolutionFilterIds(
+          nextSelectedSolutionId ? [nextSelectedSolutionId] : null,
+        );
         setInlineAdd(null);
         setParsedItems(null);
         shouldReopenOnError = true;
@@ -2852,7 +2971,9 @@ export default function ReviewClient({
           ? payload.solution.id
           : activeSelectedSolutionId;
         setReview(nextReview);
-        setSelectedSolutionId(nextSelectedSolutionId);
+        setSelectedSolutionFilterIds(
+          nextSelectedSolutionId ? [nextSelectedSolutionId] : null,
+        );
         addConfirmation("solution", payload.solution.name);
       }
 
@@ -2871,7 +2992,9 @@ export default function ReviewClient({
         nextSelectedSolutionId = optimisticAssumption.solutionId;
 
         setReview(nextReview);
-        setSelectedSolutionId(nextSelectedSolutionId);
+        setSelectedSolutionFilterIds(
+          nextSelectedSolutionId ? [nextSelectedSolutionId] : null,
+        );
         setInlineAdd(null);
         setParsedItems(null);
         shouldReopenOnError = true;
@@ -2896,7 +3019,9 @@ export default function ReviewClient({
         );
         nextSelectedSolutionId = payload.assumption.solutionId;
         setReview(nextReview);
-        setSelectedSolutionId(nextSelectedSolutionId);
+        setSelectedSolutionFilterIds(
+          nextSelectedSolutionId ? [nextSelectedSolutionId] : null,
+        );
         addConfirmation("assumption", payload.assumption.title);
       }
 
@@ -2915,7 +3040,9 @@ export default function ReviewClient({
         nextSelectedSolutionId = optimisticTest.solutionId;
 
         setReview(nextReview);
-        setSelectedSolutionId(nextSelectedSolutionId);
+        setSelectedSolutionFilterIds(
+          nextSelectedSolutionId ? [nextSelectedSolutionId] : null,
+        );
         syncSelectedTest(nextReview, optimisticTest.id);
         setInlineAdd(null);
         setParsedItems(null);
@@ -2940,7 +3067,9 @@ export default function ReviewClient({
         nextSelectedSolutionId = payload.test.solutionId;
 
         setReview(nextReview);
-        setSelectedSolutionId(nextSelectedSolutionId);
+        setSelectedSolutionFilterIds(
+          nextSelectedSolutionId ? [nextSelectedSolutionId] : null,
+        );
         syncSelectedTest(nextReview, payload.test.id);
         addConfirmation("test", payload.test.test);
       }
@@ -2989,7 +3118,7 @@ export default function ReviewClient({
 
       await parseJson<{ ok: true }>(response);
       await refreshReview({
-        preserveSolutionId: activeSelectedSolutionId,
+        preserveSolutionIds: selectedSolutionFilterIds,
         preserveTestId: selectedTestId,
       });
       setTreeEdit(null);
@@ -3252,7 +3381,6 @@ export default function ReviewClient({
                     className="tree-test-row"
                     key={test.id}
                     onClick={() => {
-                      setSelectedSolutionId(test.solutionId);
                       selectTest(test.id);
                       setTreeOpen(false);
                     }}
@@ -3414,11 +3542,11 @@ export default function ReviewClient({
       ) : null}
 
       <section className={`review-workspace ${selectedTest ? "detail-open" : ""}`}>
-        <aside className="focus-rail">
+        <aside className="focus-rail filter-rail">
           <div className="focus-heading-row">
             <div>
-              <div className="eyebrow">Focus</div>
-              <h1>{review.focusOpportunity.title}</h1>
+              <div className="eyebrow">Filters</div>
+              <h1>Focused discovery work</h1>
             </div>
             <button
               className="focus-change-button"
@@ -3432,91 +3560,110 @@ export default function ReviewClient({
               type="button"
             >
               <Network aria-hidden="true" size={14} />
-              Change
+              Tree
             </button>
           </div>
           <div className="focus-chip-row">
             <span className="focus-chip">
-              <Search aria-hidden="true" size={13} />
-              Opportunity
+              <ListFilter aria-hidden="true" size={13} />
+              Queue filters
             </span>
             <span className="focus-depth">
-              {review.focusOpportunities.length} opportunit
-              {review.focusOpportunities.length === 1 ? "y" : "ies"} in focus ·
-              Active path · {Math.max(review.path.length - 1, 1)} levels deep
+              Showing {queueSolutions.length} of {review.solutions.length} focused
+              solutions · {visibleAssumptionCount} assumptions
             </span>
           </div>
 
           <div className="rail-divider" />
 
-          <div className="rail-section-head">
-            <span className="eyebrow">Solutions in play</span>
-            <span className="rail-tip">tap to focus</span>
+          <div className="filter-toolbar">
+            <span className="eyebrow">Focused opportunities</span>
+            {filtersActive ? (
+              <button
+                className="filter-reset-button"
+                onClick={resetQueueFilters}
+                type="button"
+              >
+                Reset
+              </button>
+            ) : null}
           </div>
 
-          <div className="solution-stack">
-            {review.solutions.map((solution) => {
-              const solutionTests = review.tests.filter(
-                (test) => test.solutionId === solution.id,
-              );
-              const openTests = solutionTests.filter(
-                (test) => test.status !== "done",
-              );
-              const isFocused = solution.isFocus;
-              const isCompleted = solution.status === "completed";
+          <div className="filter-option-list">
+            {review.focusOpportunities.map((opportunity) => {
+              const counts = testsByOpportunityId.get(opportunity.id) ?? {
+                total: 0,
+                open: 0,
+              };
+              const checked = activeOpportunityFilterIds.includes(opportunity.id);
 
               return (
-                <button
-                  className={`solution-tile ${isFocused ? "focused" : ""} ${
-                    isCompleted ? "completed" : ""
-                  }`}
-                  disabled={busy}
+                <label className="filter-option" key={opportunity.id}>
+                  <input
+                    checked={checked}
+                    onChange={() => toggleOpportunityFilter(opportunity.id)}
+                    type="checkbox"
+                  />
+                  <span className="filter-option-copy">
+                    <strong>{opportunity.title}</strong>
+                    <small>
+                      {counts.total} test{counts.total === 1 ? "" : "s"} ·{" "}
+                      {counts.open} open
+                    </small>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+
+          <div className="rail-divider" />
+
+          <div className="filter-toolbar">
+            <span className="eyebrow">Focused solutions</span>
+          </div>
+
+          <div className="filter-option-list">
+            {review.solutions.map((solution) => {
+              const counts = testsBySolutionId.get(solution.id) ?? {
+                total: 0,
+                open: 0,
+              };
+              const checked = activeSolutionFilterIds.includes(solution.id);
+
+              return (
+                <label
+                  className={`filter-option ${solution.status === "completed" ? "completed" : ""}`}
                   key={solution.id}
-                  onClick={() => {
-                    void setFocusSolution(solution.id, !solution.isFocus);
-                  }}
-                  type="button"
                 >
-                  <div className="solution-tile-title">
-                    <span className="solution-rank">{solution.rank}</span>
-                    <strong>{solution.name}</strong>
-                    {isCompleted ? (
+                  <input
+                    checked={checked}
+                    onChange={() => toggleSolutionFilter(solution.id)}
+                    type="checkbox"
+                  />
+                  <span className="filter-option-copy">
+                    <span className="filter-solution-title">
+                      <span className="solution-rank">{solution.rank}</span>
+                      <strong>{solution.name}</strong>
+                    </span>
+                    <small>
+                      {solution.opportunityTitle} · {counts.total} test
+                      {counts.total === 1 ? "" : "s"} · {counts.open} open
+                    </small>
+                    {solution.status === "completed" ? (
                       <span className="completed-pill compact">
                         <CheckCircle2 aria-hidden="true" size={11} />
                         Completed
                       </span>
                     ) : null}
-                  </div>
-                  <p>
-                    {solution.description || "Add a short explanation for this solution."}
-                  </p>
-                  <div className="solution-tile-meta">
-                    <span>
-                      {solutionTests.length} test
-                      {solutionTests.length === 1 ? "" : "s"}
-                    </span>
-                    <span className="meta-separator" aria-hidden="true" />
-                    <span
-                      className={
-                        isCompleted
-                          ? "solution-completed"
-                          : openTests.length > 0
-                            ? "solution-open"
-                            : "solution-clear"
-                      }
-                    >
-                      {isCompleted
-                        ? "completed"
-                        : openTests.length > 0
-                        ? `${openTests.length} open`
-                        : "all resolved"}
-                    </span>
-                    <span className="solution-cue">{isFocused ? "Focused" : "Set focus"}</span>
-                  </div>
-                </button>
+                  </span>
+                </label>
               );
             })}
           </div>
+
+          <p className="filter-helper">
+            Focus is managed in the full tree. These controls only narrow the queue.
+          </p>
         </aside>
 
         <section className="queue-surface">
@@ -3530,16 +3677,13 @@ export default function ReviewClient({
             </div>
 
             <div className="queue-actions">
-              {activeSelectedSolutionId ? (
+              {filtersActive ? (
                 <button
                   className="queue-filter-pill"
-                  onClick={() => setSelectedSolutionId(null)}
+                  onClick={resetQueueFilters}
                   type="button"
                 >
-                  Focused on{" "}
-                  {review.solutions.find(
-                    (solution) => solution.id === activeSelectedSolutionId,
-                  )?.shortName ?? "Solution"}
+                  Filters active
                   <span className="queue-filter-close" aria-hidden="true">
                     <X size={10} />
                   </span>
@@ -3551,13 +3695,14 @@ export default function ReviewClient({
                 onClick={() =>
                   openInlineAdd("test", {
                     location: "queue",
-                    anchorId: review.focusOpportunity.id,
+                    anchorId: review.outcome.id,
                     solutionId:
                       activeSelectedSolutionId ??
-                      review.solutions[0]?.id ??
+                      queueSolutions[0]?.id ??
                       "",
                   })
                 }
+                disabled={queueSolutions.length < 1}
                 type="button"
               >
                 <Plus aria-hidden="true" size={14} />
@@ -3566,13 +3711,13 @@ export default function ReviewClient({
             </div>
           </div>
           {renderInlineAddForm({
-            key: `queue:${review.focusOpportunity.id}:test`,
+            key: `queue:${review.outcome.id}:test`,
             kind: "test",
             location: "queue",
-            anchorId: review.focusOpportunity.id,
+            anchorId: review.outcome.id,
             solutionId:
               activeSelectedSolutionId ??
-              review.solutions[0]?.id ??
+              queueSolutions[0]?.id ??
               "",
           })}
 
@@ -3584,25 +3729,20 @@ export default function ReviewClient({
             </div>
 
             {queueGroups.map(({ solution, assumptions }) => {
-              const solutionFocused =
-                activeSelectedSolutionId === solution.id || solution.isFocus;
               const isCompleted = solution.status === "completed";
 
               return (
                 <div className="queue-group" key={solution.id}>
                   <div
-                    className={`queue-solution-cell ${
-                      solutionFocused ? "focused" : ""
-                    } ${isCompleted ? "completed" : ""}`}
+                    className={`queue-solution-cell focused ${
+                      isCompleted ? "completed" : ""
+                    }`}
                   >
-                    <button
-                      className="queue-solution-focus"
-                      onClick={() => focusSolution(solution.id)}
-                      type="button"
-                    >
+                    <div className="queue-solution-focus">
                       <span className="solution-rank">{solution.rank}</span>
                       <span className="queue-solution-copy">
                         <strong>{solution.name}</strong>
+                        <small>{solution.opportunityTitle}</small>
                         {isCompleted ? (
                           <span className="completed-pill compact">
                             <CheckCircle2 aria-hidden="true" size={11} />
@@ -3610,7 +3750,7 @@ export default function ReviewClient({
                           </span>
                         ) : null}
                       </span>
-                    </button>
+                    </div>
                   </div>
 
                   <div className="queue-assumption-stack">
@@ -3664,7 +3804,6 @@ export default function ReviewClient({
                                     className={`test-row ${isSelected ? "selected" : ""}`}
                                     key={test.id}
                                     onClick={() => {
-                                      setSelectedSolutionId(solution.id);
                                       selectTest(test.id);
                                     }}
                                     type="button"
@@ -3723,11 +3862,27 @@ export default function ReviewClient({
                 </div>
               );
             })}
+
+            {queueGroups.length === 0 ? (
+              <div className="queue-empty-state">
+                <strong>No assumptions match these filters.</strong>
+                <p>Reset filters or change the focused opportunities and solutions in the tree.</p>
+                {filtersActive ? (
+                  <button
+                    className="secondary-button"
+                    onClick={resetQueueFilters}
+                    type="button"
+                  >
+                    Reset filters
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <div className="queue-endnote">
             <span className="queue-endnote-dot" aria-hidden="true" />
-            End of queue for this opportunity · deeper branches stay collapsed
+            End of queue for focused solutions · filters do not change tree focus
           </div>
         </section>
 
