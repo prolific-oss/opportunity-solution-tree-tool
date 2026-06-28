@@ -218,6 +218,57 @@ function compareByPriority(
   return left.sortOrder - right.sortOrder;
 }
 
+function getOrderedChildNodes(
+  nodes: OstNode[],
+  parentId: string | null,
+  nodeType: OstNode["nodeType"],
+) {
+  return nodes
+    .filter((node) => node.parentId === parentId && node.nodeType === nodeType)
+    .sort(compareByPriority);
+}
+
+function solutionNodesInTreeOrder(nodes: OstNode[]) {
+  const orderedSolutions: OstNode[] = [];
+
+  function visitSolution(solution: OstNode) {
+    orderedSolutions.push(solution);
+
+    getOrderedChildNodes(nodes, solution.id, "solution").forEach((childSolution) => {
+      visitSolution(childSolution);
+    });
+  }
+
+  function visitOpportunity(opportunity: OstNode) {
+    const childOpportunities = getOrderedChildNodes(
+      nodes,
+      opportunity.id,
+      "opportunity",
+    );
+
+    if (childOpportunities.length > 0) {
+      childOpportunities.forEach((childOpportunity) => {
+        visitOpportunity(childOpportunity);
+      });
+      return;
+    }
+
+    getOrderedChildNodes(nodes, opportunity.id, "solution").forEach((solution) => {
+      visitSolution(solution);
+    });
+  }
+
+  getOrderedChildNodes(nodes, null, "outcome").forEach((outcome) => {
+    getOrderedChildNodes(nodes, outcome.id, "opportunity").forEach(
+      (opportunity) => {
+        visitOpportunity(opportunity);
+      },
+    );
+  });
+
+  return orderedSolutions;
+}
+
 function siblingLabelForNode(
   nodeId: string,
   nodeType: "opportunity" | "solution",
@@ -781,12 +832,9 @@ export async function getReviewState(): Promise<ReviewState> {
       isNodeOrDescendantOf(node, opportunity.id, nodeMap),
     );
 
-  const descendantSolutionNodes = nodes
-    .filter(
-      (node) =>
-        node.nodeType === "solution" && isInFocusedOpportunity(node),
-    )
-    .sort(compareByPriority);
+  const descendantSolutionNodes = solutionNodesInTreeOrder(nodes).filter((node) =>
+    isInFocusedOpportunity(node),
+  );
   const solutionNodes = descendantSolutionNodes;
 
   const pathNodeIds = new Set(path.map((node) => node.id));

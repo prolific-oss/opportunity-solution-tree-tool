@@ -513,12 +513,12 @@ function compareRankable<T extends { id: string; rank: number; reviewPriority: n
   left: T,
   right: T,
 ) {
-  if (left.reviewPriority !== right.reviewPriority) {
-    return left.reviewPriority - right.reviewPriority;
-  }
-
   if (left.rank !== right.rank) {
     return left.rank - right.rank;
+  }
+
+  if (left.reviewPriority !== right.reviewPriority) {
+    return left.reviewPriority - right.reviewPriority;
   }
 
   return left.id.localeCompare(right.id);
@@ -3981,7 +3981,7 @@ export default function ReviewClient({
                 <h2>Assumption test queue</h2>
                 <span className="queue-count">{queueCount}</span>
               </div>
-              <p>Ordered by solution priority, then by test priority. Work top-down.</p>
+              <p>Ordered by full tree order, then by test priority. Work top-down.</p>
             </div>
 
             <div className="queue-actions">

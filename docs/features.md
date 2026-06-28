@@ -49,7 +49,8 @@ The left rail filters the assumption test queue across focused work.
 
 The main screen shows the active assumption test queue for all focused solutions, regardless of opportunity.
 
-- Queue rows are ordered by solution priority, then assumption and test priority.
+- Queue rows follow the full tree order for focused solutions and their
+  assumptions, then sort tests within each assumption by priority.
 - Solutions appear in the left column.
 - Assumptions and their tests appear in the main column.
 - The main queue is always expanded. Expand/collapse behavior is only used in the full tree drawer.
