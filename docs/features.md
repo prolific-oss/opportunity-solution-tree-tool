@@ -139,12 +139,16 @@ Expand/collapse controls are intentionally scoped to the tree drawer.
 
 ### Focus and Visual State
 
-- The actual focused opportunity has a clear focus pill and stronger focus styling.
-- Rows on the path to the focused opportunity stay readable but quieter than the focused row.
+- Opportunity focus has one terminal focused opportunity at a time.
+- The focused opportunity's lineage is also in focus, so its parent opportunities and the outcome remain visibly active.
+- Solution focus has a global cap of three focused solutions.
+- Focused solutions also focus their lineage, including parent solutions, parent opportunities, and the outcome.
+- Focused rows have a clear focus pill and stronger focus styling.
+- Rows on a focus path stay readable but quieter than the terminal focused row.
 - Non-focused opportunity and solution alternatives are dimmed.
 - Muted alternatives brighten on hover/focus so they remain usable.
 - Muted `Set focus` buttons are toned down so they do not compete with the focused card.
-- Selected or expanded solution rows receive focus styling.
+- Solution focus can be set or unset from the solution rail or full tree drawer.
 
 ### Add Actions
 
@@ -173,6 +177,7 @@ The `Add` menu adapts to the selected tree node.
 - Assumption type can be edited inline.
 - Solution completion can be toggled between active and completed.
 - Opportunities can be set as the focused opportunity.
+- Up to three solutions can be set as focused solutions.
 
 ### Delete Actions
 
@@ -218,7 +223,7 @@ The app uses local Next API routes for review changes:
 - `POST /api/review/tests`: create tests.
 - `PATCH /api/review/tests/[id]`: update tests.
 - `DELETE /api/review/tests/[id]`: delete tests.
-- `PATCH /api/review/nodes/[id]`: update tree nodes, focus state, and solution status.
+- `PATCH /api/review/nodes/[id]`: update tree nodes, rebuild focus lineage, and update solution status.
 - `DELETE /api/review/nodes/[id]`: delete tree nodes.
 - `PATCH /api/review/nodes/reorder`: reorder sibling tree nodes.
 - `POST /api/review/team-members`: add team members.

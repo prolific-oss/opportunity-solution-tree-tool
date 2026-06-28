@@ -626,6 +626,7 @@ function withCreatedOpportunity(
     description: opportunity.description,
     rank: opportunity.reviewPriority,
     active: false,
+    isFocus: false,
   };
 
   return {
@@ -660,10 +661,11 @@ function withCreatedSolution(
         type: "solution",
         title: solution.name,
         description: solution.description,
-        status: solution.status,
-        rank: solution.reviewPriority,
-        active: false,
-      },
+      status: solution.status,
+      rank: solution.reviewPriority,
+      active: false,
+      isFocus: false,
+    },
     ],
     solutions: [
       ...review.solutions.filter((current) => current.id !== solution.id),
@@ -694,6 +696,7 @@ function withCreatedAssumption(
         assumptionType: assumption.assumptionType,
         rank: assumption.reviewPriority,
         active: false,
+        isFocus: false,
       },
     ],
     assumptions: [
@@ -833,6 +836,7 @@ function makeOptimisticSolution(
     shortName: shortNameFromTitle(title),
     status: "active",
     reviewPriority,
+    isFocus: false,
   };
 }
 
@@ -1146,6 +1150,7 @@ export default function ReviewClient({
       description: review.outcome.description,
       rank: 1,
       active: true,
+      isFocus: true,
     } satisfies ReviewTreeNode);
   const focusOpportunityPathIds = useMemo(() => {
     const pathIds = new Set<string>();
@@ -1253,6 +1258,34 @@ export default function ReviewClient({
       );
     } catch (error) {
       setTreeMessage(error instanceof Error ? error.message : "Could not change focus.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setFocusSolution(nodeId: string, isFocus: boolean) {
+    setBusy(true);
+    setTreeMessage("");
+    try {
+      await parseJson<{ ok: true }>(
+        await fetch(`/api/review/nodes/${nodeId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isFocus }),
+        }),
+      );
+
+      await refreshReview({
+        preserveSolutionId: isFocus ? nodeId : null,
+        preserveTestId: null,
+      });
+      setExpandedTreeSolutionIds((current) =>
+        current.includes(nodeId) ? current : [...current, nodeId],
+      );
+    } catch (error) {
+      setTreeMessage(
+        error instanceof Error ? error.message : "Could not change solution focus.",
+      );
     } finally {
       setBusy(false);
     }
@@ -2063,8 +2096,11 @@ export default function ReviewClient({
         : null;
     const addActions = treeAddActions(node);
     const depth = options?.depth ?? 0;
-    const canSetFocus =
-      node.type === "opportunity" && node.id !== review.focusOpportunity.id;
+    const isTerminalFocusedSolution =
+      node.type === "solution" &&
+      review.solutions.some(
+        (solution) => solution.id === node.id && solution.isFocus,
+      );
     const addKey = `tree-add:${node.id}`;
     const deleteTarget =
       deleteConfirm?.nodeId === node.id ? deleteConfirm : null;
@@ -2089,7 +2125,13 @@ export default function ReviewClient({
       node.type === "opportunity" && node.id === review.focusOpportunity.id;
     const isFocusPathOpportunity =
       node.type === "opportunity" && focusOpportunityPathIds.has(node.id);
-    const focusedSolutionId = activeSelectedSolutionId;
+    const canSetOpportunityFocus =
+      node.type === "opportunity" && !isFocusPathOpportunity;
+    const canToggleSolutionFocus =
+      node.type === "solution" && (!node.isFocus || isTerminalFocusedSolution);
+    const hasFocusedSolutions = review.tree.some(
+      (treeNode) => treeNode.type === "solution" && treeNode.isFocus,
+    );
     const solutionChildCount =
       node.type === "solution" ? getTreeChildren(node.id, "solution").length : 0;
     const solutionAssumptionCount =
@@ -2099,16 +2141,18 @@ export default function ReviewClient({
       node.type === "assumption"
         ? review.tests.filter((test) => test.assumptionNodeId === node.id).length
         : 0;
-    const isFocusSolution =
-      node.type === "solution" && focusedSolutionId === node.id;
+    const isFocusSolution = node.type === "solution" && node.isFocus;
     const isFocusRow = isFocusOpportunity || isFocusSolution;
-    const isFocusPathRow = !isFocusRow && isFocusPathOpportunity;
+    const isFocusPathRow =
+      !isFocusRow &&
+      (isFocusPathOpportunity ||
+        (node.type !== "solution" && node.isFocus && node.type !== "outcome"));
     const isMutedRow =
       (node.type === "opportunity" &&
         !isFocusOpportunity &&
         !isFocusPathOpportunity &&
         !isOpportunityExpanded) ||
-      (node.type === "solution" && Boolean(focusedSolutionId) && !isFocusSolution);
+      (node.type === "solution" && hasFocusedSolutions && !isFocusSolution);
     const nodeTypeMeta = treeTypeMeta[node.type];
     const NodeTypeIcon = nodeTypeMeta.icon;
 
@@ -2187,7 +2231,7 @@ export default function ReviewClient({
                 <NodeTypeIcon aria-hidden="true" size={12} />
                 {nodeTypeMeta.label}
               </span>
-              {node.id === review.focusOpportunity.id ? (
+              {node.isFocus && node.type !== "outcome" ? (
                 <span className="reviewing-pill">Focus</span>
               ) : null}
               {isCompletedSolution ? (
@@ -2316,15 +2360,32 @@ export default function ReviewClient({
               <span>{isCompletedSolution ? "Reopen" : "Complete"}</span>
             </button>
           ) : null}
-          {canSetFocus ? (
+          {canSetOpportunityFocus ? (
             <button
               className="tree-focus-button"
               disabled={busy}
-              onClick={() => setFocusOpportunity(node.id)}
+              onClick={(event) => {
+                event.stopPropagation();
+                void setFocusOpportunity(node.id);
+              }}
               type="button"
             >
               <Target aria-hidden="true" size={13} />
               <span>Set focus</span>
+            </button>
+          ) : null}
+          {canToggleSolutionFocus ? (
+            <button
+              className="tree-focus-button"
+              disabled={busy}
+              onClick={(event) => {
+                event.stopPropagation();
+                void setFocusSolution(node.id, !node.isFocus);
+              }}
+              type="button"
+            >
+              <Target aria-hidden="true" size={13} />
+              <span>{node.isFocus ? "Unset focus" : "Set focus"}</span>
             </button>
           ) : null}
           {addActions.length > 0 ? (
@@ -3304,7 +3365,7 @@ export default function ReviewClient({
               const openTests = solutionTests.filter(
                 (test) => test.status !== "done",
               );
-              const isFocused = activeSelectedSolutionId === solution.id;
+              const isFocused = solution.isFocus;
               const isCompleted = solution.status === "completed";
 
               return (
@@ -3312,8 +3373,11 @@ export default function ReviewClient({
                   className={`solution-tile ${isFocused ? "focused" : ""} ${
                     isCompleted ? "completed" : ""
                   }`}
+                  disabled={busy}
                   key={solution.id}
-                  onClick={() => focusSolution(solution.id)}
+                  onClick={() => {
+                    void setFocusSolution(solution.id, !solution.isFocus);
+                  }}
                   type="button"
                 >
                   <div className="solution-tile-title">
@@ -3350,7 +3414,7 @@ export default function ReviewClient({
                         ? `${openTests.length} open`
                         : "all resolved"}
                     </span>
-                    <span className="solution-cue">{isFocused ? "Focused" : ""}</span>
+                    <span className="solution-cue">{isFocused ? "Focused" : "Set focus"}</span>
                   </div>
                 </button>
               );
@@ -3423,7 +3487,8 @@ export default function ReviewClient({
             </div>
 
             {queueGroups.map(({ solution, assumptions }) => {
-              const solutionFocused = activeSelectedSolutionId === solution.id;
+              const solutionFocused =
+                activeSelectedSolutionId === solution.id || solution.isFocus;
               const isCompleted = solution.status === "completed";
 
               return (
