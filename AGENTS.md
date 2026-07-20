@@ -12,6 +12,17 @@ Keep documentation concise, current, and written for someone trying to understan
 
 This repo is managed as a local-first app published through GitHub. Do not run or report deployment steps for routine changes unless the user explicitly asks for deployment work.
 
+## Local Run Rule
+
+When the user asks to run the app locally without asking for QA, visual
+verification, fixture data, or destructive testing, use the normal local
+database at `data/review-command-center.sqlite`. Do not set `REVIEW_DB_PATH` for
+ordinary local runs.
+
+Use a disposable `REVIEW_DB_PATH` only when the task explicitly involves QA
+fixtures, visual proof states, seeded examples, or other throwaway data. When
+using a disposable database, state that clearly with the local URL.
+
 ## Frontend Verification Rule
 
 For frontend changes, include screenshots in the final response that show the
