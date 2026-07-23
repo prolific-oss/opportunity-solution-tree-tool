@@ -1,0 +1,9 @@
+.next
+node_modules
+data/*.sqlite
+.git
+.gitignore
+README.md
+AGENTS.md
+docs/
+drizzle/
