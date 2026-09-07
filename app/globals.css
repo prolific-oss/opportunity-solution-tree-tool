@@ -1686,11 +1686,47 @@ button:disabled {
   align-items: center;
 }
 
-.assumption-heading strong {
+.assumption-heading-copy {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 9px;
+}
+
+.assumption-heading strong {
   font-size: 13px;
   line-height: 1.35;
+}
+
+.assumption-verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  width: fit-content;
+  padding: 3px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.assumption-verdict.validated {
+  color: #17633f;
+  background: #e6f4eb;
+}
+
+.assumption-verdict.invalidated {
+  color: #9a3434;
+  background: #fbeaea;
+}
+
+.assumption-verdict.mixed {
+  color: #805510;
+  background: #fff3d6;
 }
 
 .add-inline-button {

@@ -2,6 +2,7 @@
 
 import {
   CalendarDays,
+  AlertCircle,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -38,6 +39,24 @@ import type {
 } from "@/lib/review-data";
 
 type AddKind = "opportunity" | "solution" | "assumption" | "test";
+
+function AssumptionVerdict({ tests }: { tests: ReviewTest[] }) {
+  const completed = tests.filter((test) => test.status === "done");
+  const validated = completed.some((test) => test.verdict === "validated");
+  const invalidated = completed.some((test) => test.verdict === "invalidated");
+  if (!validated && !invalidated) return null;
+
+  const state = validated && invalidated ? "mixed" : validated ? "validated" : "invalidated";
+  const label = state === "mixed" ? "Mixed evidence" : validated ? "Validated" : "Invalidated";
+  const Icon = state === "validated" ? CheckCircle2 : AlertCircle;
+
+  return (
+    <span className={`assumption-verdict ${state}`} title="Based on completed test verdicts">
+      <Icon aria-hidden="true" size={12} />
+      {label}
+    </span>
+  );
+}
 type TreeNodeType = ReviewTreeNode["type"];
 type InlineAddLocation = "tree" | "queue" | "detail";
 
@@ -2627,6 +2646,9 @@ export default function ReviewClient({
                   Completed
                 </span>
               ) : null}
+              {node.type === "assumption" ? (
+                <AssumptionVerdict tests={review.tests.filter((test) => test.assumptionNodeId === node.id)} />
+              ) : null}
             </span>
             <button
               aria-label={`Edit ${treeTypeLabels[node.type].toLowerCase()}`}
@@ -4073,7 +4095,10 @@ export default function ReviewClient({
                             >
                               {assumptionTypeMeta.label}
                             </span>
-                            <strong>{assumption.title}</strong>
+                            <div className="assumption-heading-copy">
+                              <strong>{assumption.title}</strong>
+                              <AssumptionVerdict tests={tests} />
+                            </div>
                             <button
                               className="add-inline-button"
                               onClick={() =>
