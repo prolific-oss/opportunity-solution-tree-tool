@@ -53,6 +53,7 @@ The main screen shows the active assumption test queue for all focused solutions
   assumptions, then sort tests within each assumption by priority.
 - Solutions appear in the left column.
 - Assumptions and their tests appear in the main column.
+- Assumption cards in the queue and full tree show a `Validated` or `Invalidated` badge based on completed test verdicts. If completed tests disagree, the badge shows `Mixed evidence`. Assumptions without a completed verdict have no badge. The badge updates when tests are saved, reopened, moved, or deleted; unfinished tests do not contribute.
 - The main queue is always expanded. Expand/collapse behavior is only used in the full tree drawer.
 - Queue filters can be reset from the queue header or the left rail.
 - Solution labels in the queue show only the solution name, rank, and completion state.

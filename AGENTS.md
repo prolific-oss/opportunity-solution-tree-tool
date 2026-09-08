@@ -1,5 +1,11 @@
 # Repository Instructions
 
+## Canonical Repository
+
+Always use `prolific-oss/opportunity-solution-tree-tool` for fetching, pushing,
+and pull requests. Do not use `rathbala-pm/continuous_discovery` as the target.
+Verify the remote URL before publishing changes.
+
 ## Documentation Rule
 
 When adding, changing, or removing user-facing functionality, always update the feature documentation in `docs/features.md` in the same change.

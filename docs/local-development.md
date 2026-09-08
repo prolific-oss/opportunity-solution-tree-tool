@@ -2,6 +2,10 @@
 
 ## Prerequisites
 
+The canonical GitHub repository is `prolific-oss/opportunity-solution-tree-tool`.
+Fetch and push changes there. The older `rathbala-pm/continuous_discovery`
+repository is not the publishing target.
+
 - Node.js `>=22.13.0`
 - npm
 
